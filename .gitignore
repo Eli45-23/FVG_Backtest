@@ -1,0 +1,14 @@
+# Credentials
+.env
+.env.*
+!.env.example
+# Market data, partial files, and download locks
+outputs/data/
+data/
+*.parquet
+*.dbn
+*.dbn.zst
+# Local runtime and scratch files
+work/
+.venv/
+__pycache__/
