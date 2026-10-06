@@ -26,3 +26,7 @@ The script prints row count, minimum/maximum timestamp, byte size, absolute path
 
 The deterministic data-only layer is documented in [BAR_LAYER.md](BAR_LAYER.md).
 Run `work/.venv/bin/python outputs/build_5m.py` to build and validate local five-minute bars; no API key or network access is required. Run the synthetic tests with `work/.venv/bin/python -m unittest discover -s outputs/tests -v`.
+
+## FVG formation layer
+
+Run `work/.venv/bin/python outputs/detect_fvgs.py` for deterministic bullish/bearish FVG formation and its validation report. See [FVG_LAYER.md](FVG_LAYER.md) for the exact contract, results and local evidence files. This layer contains no backtester or trade logic.
