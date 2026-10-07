@@ -12,3 +12,5 @@ data/
 work/
 .venv/
 __pycache__/
+# Derived backtest trades, execution audit, and equity data
+outputs/results/
