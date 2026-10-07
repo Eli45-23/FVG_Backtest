@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Literal, Any
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 import pandas as pd
 import pyarrow.parquet as pq
 from engine.legacy import reference
@@ -10,7 +10,7 @@ from engine.canonical import clean
 
 
 class Annotation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     type: Literal["box", "horizontal_line", "vertical_marker", "point_marker", "label"]
     start_time: datetime
     end_time: datetime | None = None
@@ -20,6 +20,28 @@ class Annotation(BaseModel):
     label: str = ""
     category: str = "strategy"
     metadata: dict[str, Any] = {}
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        if self.start_time.tzinfo is None or (
+            self.end_time and self.end_time.tzinfo is None
+        ):
+            raise ValueError("Annotations require timezone-aware timestamps")
+        if self.end_time and self.end_time < self.start_time:
+            raise ValueError("Annotation end precedes start")
+        if self.type == "box" and (
+            self.price_low is None
+            or self.price_high is None
+            or self.price_low > self.price_high
+            or not self.end_time
+        ):
+            raise ValueError("Box requires ordered prices and end time")
+        if (
+            self.type in ("horizontal_line", "point_marker", "label")
+            and self.price is None
+        ):
+            raise ValueError("Price annotation requires a price")
+        return self
 
 
 def chart_payload(rows, trade_id, window="30", events=()):

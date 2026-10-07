@@ -146,7 +146,60 @@ def migrate():
                 )
             )
             s.add(Migration(version=2))
+        if s.get(Migration, 3) is None:
+            for table, fields in [
+                (
+                    "strategy_versions",
+                    "source, source_hash, number, strategy_id, created_at",
+                ),
+                ("research_splits", "ranges"),
+                (
+                    "experiment_snapshots",
+                    "config, snapshot_hash, research_split_id, strategy_version_id",
+                ),
+                ("experiment_runs", "run_id, experiment_snapshot_id, segment"),
+            ]:
+                s.execute(
+                    text(
+                        f"CREATE TRIGGER IF NOT EXISTS immutable_{table} BEFORE UPDATE OF {fields} ON {table} BEGIN SELECT RAISE(ABORT, 'Immutable history: create a new snapshot/version'); END"
+                    )
+                )
+            s.add(Migration(version=3))
 
 
 def encode(row):
     return {c.name: getattr(row, c.name) for c in row.__table__.columns}
+
+
+class ResearchSplit(Base):
+    __tablename__ = "research_splits"
+    id: Mapped[str] = mapped_column(primary_key=True, default=uid)
+    name: Mapped[str]
+    description: Mapped[str] = mapped_column(default="")
+    ranges: Mapped[dict] = mapped_column(JSON)
+    warnings: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[str] = mapped_column(default=now)
+
+
+class ExperimentSnapshot(Base):
+    __tablename__ = "experiment_snapshots"
+    id: Mapped[str] = mapped_column(primary_key=True, default=uid)
+    name: Mapped[str]
+    research_split_id: Mapped[str] = mapped_column(ForeignKey("research_splits.id"))
+    strategy_version_id: Mapped[str] = mapped_column(ForeignKey("strategy_versions.id"))
+    config: Mapped[dict] = mapped_column(JSON)
+    snapshot_hash: Mapped[str]
+    created_at: Mapped[str] = mapped_column(default=now)
+    frozen_at: Mapped[str | None] = mapped_column(nullable=True)
+    oos_run_at: Mapped[str | None] = mapped_column(nullable=True)
+    oos_revealed_at: Mapped[str | None] = mapped_column(nullable=True)
+
+
+class ExperimentRun(Base):
+    __tablename__ = "experiment_runs"
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), primary_key=True)
+    experiment_snapshot_id: Mapped[str] = mapped_column(
+        ForeignKey("experiment_snapshots.id")
+    )
+    segment: Mapped[str]
+    created_at: Mapped[str] = mapped_column(default=now)

@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response, JSONResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import select, func
 import pyarrow.parquet as pq
 import pandas as pd
 from backend.app import db, services
@@ -28,6 +28,7 @@ from engine.canonical import clean
 @asynccontextmanager
 async def lifespan(app):
     services.seed()
+    services.seed_managed()
     yield
     with db.Session() as s:
         unfinished = [
@@ -101,6 +102,7 @@ class RunSettings(Payload):
 
 
 class RunBody(Payload):
+    research_split_id: str | None = None
     strategy_version_id: str
     name: str = "Backtest"
     parameters: dict[str, Any] = {}
@@ -108,7 +110,8 @@ class RunBody(Payload):
     notes: str = ""
     variant_id: str | None = None
     segment: str = Field(
-        default="development", pattern="^(development|validation|out-of-sample)$"
+        default="development",
+        pattern="^(development|validation|out-of-sample|full-sample|ad-hoc)$",
     )
 
 
@@ -117,6 +120,7 @@ class CompareBody(Payload):
 
 
 class SweepBody(Payload):
+    advanced_validation: bool = False
     run: RunBody
     parameter: str
     values: list[Any] = Field(min_length=1, max_length=20)
@@ -210,7 +214,19 @@ def archive_strategy(id: str):
 def versions(id: str):
     with db.Session() as s:
         return [
-            db.encode(v)
+            {
+                **db.encode(v),
+                "run_count": s.scalar(
+                    select(func.count())
+                    .select_from(db.Run)
+                    .where(db.Run.strategy_version_id == v.id)
+                ),
+                "variant_count": s.scalar(
+                    select(func.count())
+                    .select_from(db.Variant)
+                    .where(db.Variant.strategy_version_id == v.id)
+                ),
+            }
             for v in s.scalars(
                 select(db.Version)
                 .where(db.Version.strategy_id == id)
@@ -240,6 +256,22 @@ def variant(body: VariantBody):
 
 @app.post("/api/backtests", response_model=Submitted)
 def submit(body: RunBody):
+    if body.segment == "out-of-sample":
+        raise ValueError(
+            "Official OOS requires a frozen experiment and explicit RUN / REVEAL OOS"
+        )
+    if body.research_split_id:
+        from backend.app.experiments import require
+
+        with db.Session() as s:
+            split = require(s, db.ResearchSplit, body.research_split_id)
+            r = split.ranges.get(body.segment)
+            if (
+                not r
+                or body.settings.start < r["start"]
+                or body.settings.end > r["end"]
+            ):
+                raise ValueError("Run dates must lie inside selected research segment")
     return {
         "id": services.enqueue(
             body.strategy_version_id,
@@ -249,6 +281,7 @@ def submit(body: RunBody):
             body.notes,
             body.variant_id,
             body.segment,
+            extra_config={"research_split_id": body.research_split_id},
         )
     }
 
@@ -258,6 +291,10 @@ def run_detail(s, row):
     p = db.STORE / "artifacts" / row.id / "progress.txt"
     return {
         **db.encode(row),
+        "run_type": row.config.get(
+            "run_type", row.config.get("segment", "ad-hoc").upper().replace("-", "_")
+        ),
+        "experiment_snapshot_id": row.config.get("experiment_snapshot_id"),
         "metrics": metric.payload if metric else None,
         "progress": (
             p.read_text() if row.status == "running" and p.exists() else row.progress
@@ -298,7 +335,11 @@ def clone_run(id: str):
                 row.name + " copy",
                 row.notes,
                 row.variant_id,
-                c.get("segment", "development"),
+                (
+                    "ad-hoc"
+                    if c.get("experiment_snapshot_id")
+                    else c.get("segment", "development")
+                ),
             )
         }
 
@@ -425,7 +466,15 @@ def compare(body: CompareBody):
     if any(r["status"] != "completed" for r in selected):
         raise ValueError("Compare completed runs only")
     warnings = []
-    for key in ["settings", "data_hashes", "engine_version", "segment"]:
+    for key in [
+        "settings",
+        "data_hashes",
+        "engine_version",
+        "segment",
+        "research_split_id",
+        "management",
+        "source_hash",
+    ]:
         if (
             len({json.dumps(r["config"].get(key), sort_keys=True) for r in selected})
             > 1
@@ -443,6 +492,14 @@ def compare(body: CompareBody):
 
 @app.post("/api/sweeps")
 def sweep(body: SweepBody):
+    from backend.app.experiments import sweep_guard
+
+    sweep_guard(
+        body.run.settings.model_dump(),
+        body.run.segment,
+        body.run.research_split_id,
+        body.advanced_validation,
+    )
     with db.Session() as s:
         v = get(s, db.Version, body.run.strategy_version_id)
         source = v.source
@@ -471,6 +528,10 @@ def sweep(body: SweepBody):
             body.run.notes,
             body.run.variant_id,
             body.run.segment,
+            extra_config={
+                "research_split_id": body.run.research_split_id,
+                "validation_sweep_override": body.advanced_validation,
+            },
         )
         with db.Session.begin() as s:
             s.add(db.SweepRun(sweep_id=sid, run_id=rid, value=value))
@@ -625,3 +686,17 @@ def logs(id: str):
         "text": p.read_text(errors="replace")[-16000:] if p.exists() else "",
         "notice": "Trusted strategy stdout/stderr; local only.",
     }
+
+
+@app.get("/api/backtests/{id}/management-events")
+def management_events(id: str):
+    return artifact(id, "result").get("management_events", [])
+
+
+from backend.app.versions import router as versions_router
+
+app.include_router(versions_router)
+
+from backend.app.experiments import router as experiments_router
+
+app.include_router(experiments_router)

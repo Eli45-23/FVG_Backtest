@@ -150,6 +150,7 @@ class MoveStop:
     reason: str = "Strategy stop update"
     trigger_type: str = "custom"
     trigger_value: object = None
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

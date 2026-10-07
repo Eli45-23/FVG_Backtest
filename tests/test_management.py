@@ -267,3 +267,50 @@ def test_callback_failure():
 
     with pytest.raises(ValueError, match="Management callback failed"):
         run(setup(), [[200, 210, 190, 200]], manager(fail))
+
+
+def test_loosen_after_activation_rejected():
+    def policy(c, p):
+        return MoveStop(D(205) if not c.stop_history else D(204))
+
+    with pytest.raises(ValueError, match="loosen"):
+        run(setup(), [[200, 251, 195, 245], [220, 240, 210, 230]], manager(policy))
+
+
+def test_simultaneous_minute_and_five_minute_requests():
+    s = setup()
+    at = s["entry_time_utc"]
+    bar = Bar(at, D(200), D(260), D(195), D(250))
+
+    def policy(c, p):
+        if c.minutes_since_entry == 5:
+            return MoveStop(D(225 if c.completed_bar else 205))
+
+    t, ev = run(
+        s,
+        [[200, 260, 195, 250]] * 5 + [[230, 240, 220, 230]],
+        manager(policy),
+        {at: bar},
+    )
+    assert (
+        len(ev) == 1
+        and ev[0]["effective_stop"] == 225
+        and ev[0]["source_event"] == "bar_5m_close"
+    )
+
+
+def test_full_managed_determinism_and_disabled_equivalence():
+    if not all(p.exists() for p in ref.INPUTS.values()):
+        pytest.skip("Local data required")
+    from engine.runner import run as backtest
+
+    source = (ROOT / "strategies/builtins/cont_a_rstep.py").read_text()
+    a = backtest(source, {})
+    b = backtest(source, {})
+    assert digest(a) == digest(b)
+    disabled = backtest(source, {"management_enabled": False})
+    control = backtest(
+        (ROOT / "strategies/builtins/cont_a.py").read_text(),
+        {"max_risk": 100, "exclude_middle": True},
+    )
+    assert digest(disabled) == digest(control)

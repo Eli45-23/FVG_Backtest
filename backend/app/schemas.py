@@ -19,6 +19,8 @@ class StrategyResponse(BaseModel):
 
 
 class VersionResponse(BaseModel):
+    run_count: int = 0
+    variant_count: int = 0
     id: str
     strategy_id: str
     number: int
@@ -38,6 +40,7 @@ class VariantResponse(BaseModel):
 
 
 class ValidationResponse(BaseModel):
+    management: dict[str, Any] = Field(default_factory=dict)
     valid: bool
     name: str | None = None
     inputs: list[dict[str, Any]] = Field(default_factory=list)
@@ -48,6 +51,8 @@ class ValidationResponse(BaseModel):
 
 
 class RunResponse(BaseModel):
+    run_type: str = "AD_HOC"
+    experiment_snapshot_id: str | None = None
     id: str
     name: str
     strategy_version_id: str

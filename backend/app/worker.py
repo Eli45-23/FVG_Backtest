@@ -35,6 +35,11 @@ def main():
             obj, params, inputs = load(data["source"], data.get("parameters"))
             result = {
                 "valid": True,
+                "management": {
+                    "enabled": callable(getattr(obj, "manage", None))
+                    and params.get("management_enabled", True),
+                    "version": "minute-close-next-start-v1",
+                },
                 "name": getattr(obj, "name", "Strategy"),
                 "inputs": inputs,
                 "parameters": dict(params),

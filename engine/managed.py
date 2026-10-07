@@ -5,6 +5,7 @@ At minute close, fills win before callbacks. Requests activate at the next minut
 import hashlib
 from decimal import Decimal as D, ROUND_FLOOR, ROUND_CEILING
 import pandas as pd
+from engine.canonical import clean
 from engine.legacy import reference
 from engine.strategy import Bar, ManagementContext, MoveStop, StopChange
 
@@ -149,7 +150,11 @@ def execute(s, minute_frame, config, manager, parameters, complete_bars):
                         "effective_stop": effective,
                         "activation_timestamp": observed,
                         "reason": request.reason,
-                        "metadata": {"policy_version": MANAGEMENT_VERSION},
+                        "metadata": {
+                            **clean(request.metadata),
+                            "policy_version": MANAGEMENT_VERSION,
+                        },
+                        "observed_minute_start": at,
                     }
                 )
                 history.append(

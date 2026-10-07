@@ -77,14 +77,14 @@ def validate(source, parameters=None, timeout=10):
         return value
 
 
-def version(s, strategy, source):
+def version(s, strategy, source, force=False):
     old = s.scalar(
         select(db.Version)
         .where(db.Version.strategy_id == strategy.id)
         .order_by(db.Version.number.desc())
     )
     h = hashlib.sha256(source.encode()).hexdigest()
-    if old and h == old.source_hash:
+    if old and h == old.source_hash and not force:
         return old
     n = 1 if old is None else old.number + 1
     v = db.Version(strategy_id=strategy.id, number=n, source=source, source_hash=h)
@@ -152,6 +152,8 @@ def enqueue(
     notes="",
     variant_id=None,
     segment="development",
+    extra_config=None,
+    expected_identity=None,
 ):
     cfg = RunConfig(**settings)
     cfg.validate()
@@ -182,7 +184,29 @@ def enqueue(
         "session": "XNYS full sessions / NY calendar date / one trade per day",
         "execution": "minute-start ownership; stop first; fixed bracket; session close; exit-minute extrema",
         "segment": segment,
+        "research_split_id": None,
+        "management": check.get("management", {"enabled": False}),
     }
+    if expected_identity:
+        for key in (
+            "source_hash",
+            "parameters",
+            "engine_version",
+            "data_hashes",
+            "management",
+        ):
+            if snapshot.get(key) != expected_identity.get(key):
+                raise ValueError(
+                    f"Frozen experiment {key} changed; create a new experiment"
+                )
+    snapshot.update(extra_config or {})
+    snapshot["run_type"] = {
+        "out-of-sample": "OUT_OF_SAMPLE",
+        "development": "DEVELOPMENT",
+        "validation": "VALIDATION",
+        "full-sample": "FULL_SAMPLE",
+        "ad-hoc": "AD_HOC",
+    }[segment]
     snapshot["reproduction_hash"] = digest(snapshot)
     with db.Session.begin() as s:
         r = db.Run(
@@ -223,6 +247,15 @@ def execute(rid):
         r.progress = "Loading local data"
     event("running", rid)
     try:
+        with db.Session() as s:
+            snapshot = s.get(db.Run, rid).config
+            if (
+                snapshot["engine_version"] != engine_version()
+                or snapshot["data_hashes"] != identities()
+            ):
+                raise ValueError(
+                    "Engine or data changed after queueing; clone with the current identity"
+                )
         with (root / "worker.log").open("w") as log:
             p = spawn(root / "request.json", root / "result.json", "run", log)
             with lock:
@@ -259,7 +292,17 @@ def execute(rid):
             (root / "trades.json").write_text(dumps(result["trades"]))
             (root / "equity.json").write_text(dumps(result["equity"]))
             s.add(db.RunMetric(run_id=rid, payload=result["summary"]))
-            for kind in ["trades", "equity", "result", "config", "request"]:
+            (root / "management_events.json").write_text(
+                dumps(result.get("management_events", []))
+            )
+            for kind in [
+                "trades",
+                "equity",
+                "result",
+                "config",
+                "request",
+                "management_events",
+            ]:
                 s.add(
                     db.Artifact(
                         run_id=rid, kind=kind, path=str(root / (kind + ".json"))
@@ -298,3 +341,28 @@ def cancel(rid):
             terminate(processes[rid])
     event("cancelled", rid)
     return "cancelled"
+
+
+def seed_managed():
+    """Add a new example only. Never change an existing saved strategy/version."""
+    with db.Session.begin() as s:
+        if s.scalar(
+            select(db.Strategy).where(db.Strategy.name == "CONT-A Quality R-Step")
+        ):
+            return
+        st = db.Strategy(
+            name="CONT-A Quality R-Step",
+            description="Causal reference management experiment; no performance assumption",
+            tags=["built-in", "managed"],
+        )
+        s.add(st)
+        s.flush()
+        v = version(s, st, (ROOT / "strategies/builtins/cont_a_rstep.py").read_text())
+        s.add(
+            db.Variant(
+                name="Quality R-Step",
+                strategy_version_id=v.id,
+                parameters={},
+                config={},
+            )
+        )
