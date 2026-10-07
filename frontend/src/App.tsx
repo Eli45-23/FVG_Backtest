@@ -60,8 +60,8 @@ export default function App() {
     [query, setQuery] = useState(""),
     [compareIds, setCompareIds] = useState<string[]>([]),
     [comparison, setComparison] = useState<any>(null),
-    [compareMode,setCompareMode] = useState("Equity"),
-    [workerLog,setWorkerLog] = useState(""),
+    [compareMode, setCompareMode] = useState("Equity"),
+    [workerLog, setWorkerLog] = useState(""),
     [data, setData] = useState<any>(null),
     [sweeps, setSweeps] = useState<any[]>([]),
     [sweepKey, setSweepKey] = useState("max_risk"),
@@ -315,7 +315,11 @@ export default function App() {
         const point = comparison.equity[r.id].find(
           (p: any) => p.exit_time_utc === time,
         );
-        if (point) values[r.id] = compareMode === "Drawdown" ? point.drawdown_usd : point.cumulative_net_pnl_usd;
+        if (point)
+          values[r.id] =
+            compareMode === "Drawdown"
+              ? point.drawdown_usd
+              : point.cumulative_net_pnl_usd;
       }
       return {
         exit_time_utc: time,
@@ -404,15 +408,13 @@ export default function App() {
                 <small>Latest completed metrics above · no ranking</small>
               </h2>
               <Table
-                rows={runs
-                  .slice(0, 8)
-                  .map((r) => ({
-                    id: r.id,
-                    name: r.name,
-                    status: r.status,
-                    created_at: r.created_at,
-                    net_pnl_usd: r.metrics?.overall.net_pnl_usd,
-                  }))}
+                rows={runs.slice(0, 8).map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  status: r.status,
+                  created_at: r.created_at,
+                  net_pnl_usd: r.metrics?.overall.net_pnl_usd,
+                }))}
                 columns={["name", "status", "created_at", "net_pnl_usd"]}
                 onRow={(r) => {
                   setActive(r.id);
@@ -691,7 +693,22 @@ export default function App() {
               )}
             </div>
             {current?.error && <div className="error">{current.error}</div>}
-            {current&&<details><summary onClick={()=>void guard(async()=>setWorkerLog((await api(`/backtests/${active}/logs`)).text))}>Local worker log</summary><pre>{workerLog||"No strategy output."}</pre></details>}
+            {current && (
+              <details>
+                <summary
+                  onClick={() =>
+                    void guard(async () =>
+                      setWorkerLog(
+                        (await api(`/backtests/${active}/logs`)).text,
+                      ),
+                    )
+                  }
+                >
+                  Local worker log
+                </summary>
+                <pre>{workerLog || "No strategy output."}</pre>
+              </details>
+            )}
             <KPIs m={current?.metrics?.overall} />
             {current?.status === "completed" ? (
               <>
@@ -793,7 +810,11 @@ export default function App() {
             ) : (
               <div className="empty panel">
                 {current
-                  ? "Worker is processing this run. Results appear here automatically."
+                  ? current.status === "failed"
+                    ? "Run failed. Review the error and local worker log, then fix or clone the configuration."
+                    : current.status === "cancelled"
+                      ? "Run cancelled. Its configuration remains in history."
+                      : "Worker is processing this run. Results appear here automatically."
                   : "Open a strategy, configure inputs and run a backtest."}
               </div>
             )}
@@ -876,11 +897,26 @@ export default function App() {
                     "Matching date, data and engine settings. Inspect parameter differences below."}
                 </div>
                 <div className="panel">
-                  <div className="tabs">{["Equity","Drawdown"].map(mode=><button key={mode} className={compareMode===mode?"active":""} onClick={()=>setCompareMode(mode)}>{mode}</button>)}</div>
+                  <div className="tabs">
+                    {["Equity", "Drawdown"].map((mode) => (
+                      <button
+                        key={mode}
+                        className={compareMode === mode ? "active" : ""}
+                        onClick={() => setCompareMode(mode)}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
                   <Curve
                     rows={compareCurve()}
                     series={comparison.runs.map((r: any) => r.id)}
-                    labels={Object.fromEntries(comparison.runs.map((r:any)=>[r.id,r.name+" · "+r.id.slice(0,6)]))}
+                    labels={Object.fromEntries(
+                      comparison.runs.map((r: any) => [
+                        r.id,
+                        r.name + " · " + r.id.slice(0, 6),
+                      ]),
+                    )}
                   />
                   <Table
                     rows={comparison.runs.map((r: any) => ({

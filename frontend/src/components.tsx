@@ -196,7 +196,7 @@ export function Curve({
   rows: any[];
   series?: string[];
   x?: string;
-  labels?: Record<string,string>;
+  labels?: Record<string, string>;
 }) {
   if (!rows.length)
     return <p className="empty">No closed trades to chart for this run.</p>;

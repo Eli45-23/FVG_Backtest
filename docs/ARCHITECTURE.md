@@ -67,3 +67,28 @@ Management callbacks will request stop updates with effective timestamps; execut
 validate activation on a future event. Management is intentionally unsupported until a
 separate timing specification and regression suite exist. Candle chart overlays and
 multi-parameter sweeps can follow the core stable workflow.
+
+## Implemented v1
+All core milestones above are implemented. The public SDK supports both ordinary
+confirmed bars and the causal FVG-second-candle feature provider. CONT-A's entry
+conditions and parameter filters live in one editable source, not in the generic
+execution loop. The legacy minute executor and metrics remain imported through
+engine/legacy.py; no outputs/ source was moved or rewritten.
+
+SQLite migrations persist strategies, immutable source versions, variants, runs,
+metrics, artifact references and sweeps. The worker queue isolates trusted Python
+in timeout-controlled subprocesses with cancellation. The React application includes
+Monaco, generated inputs, results, trade filters, saved runs, comparison overlays,
+single-input sweeps, research and data pages. New non-FVG source was validated and
+executed through the browser without backend edits.
+
+The extension boundary remains deliberate: MNQ/5m, full NYSE sessions, one daily
+entry and fixed brackets. Management is reserved rather than implemented without
+validated event timing. Trade candle APIs are ready; candle/FVG overlays are the next
+UI phase. Research preview pagination, source-version browsing UI and enforced
+out-of-sample workflows remain documented follow-ups.
+
+Verification: 156 existing tests, 44 new Python tests, 5 frontend component tests,
+and 2 browser end-to-end workflows pass. Three exact full-data golden trade hashes
+and all reference overall metrics match; nonempty repeated runs are deterministic
+and protected source/result Parquet hashes remain unchanged.
