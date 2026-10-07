@@ -536,3 +536,5 @@ a {
     height: 270px;
   }
 }
+
+.candle-shell{position:relative;height:580px;overflow:hidden;border:1px solid #334155;border-radius:6px}.candle-chart{height:100%;width:100%}.candle-overlay{position:absolute;inset:0;width:calc(100% - 75px);height:calc(100% - 30px);pointer-events:none;overflow:hidden}.inspection-details{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;margin-top:20px}.inspection-details>div{overflow:auto}.inspector small{display:block;margin:10px 0}@media(max-width:900px){.inspection-details{grid-template-columns:1fr}.candle-shell{height:420px}}

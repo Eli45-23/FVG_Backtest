@@ -1,3 +1,4 @@
+import TradeInspector from "./TradeInspector";
 import { useState, useEffect, useRef } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
@@ -41,6 +42,7 @@ const initialSettings = {
   timeframe: "5m",
 };
 export default function App() {
+  const [inspectedTrade, setInspectedTrade] = useState("");
   const [page, setPage] = useState("Dashboard"),
     [strategies, setStrategies] = useState<Strategy[]>([]),
     [selected, setSelected] = useState<Strategy | null>(null),
@@ -1033,6 +1035,7 @@ export default function App() {
             ))}
           </>
         )}
+        {page === "Inspector" && <TradeInspector runId={active} tradeId={inspectedTrade} onNavigate={setInspectedTrade} onBack={()=>setPage("Trades")} />}
         {page === "Trades" && (
           <>
             <div className="toolbar">
@@ -1132,6 +1135,7 @@ export default function App() {
               <p>{tradeRows.length} matching trades</p>
               <Table
                 rows={tradeRows}
+                onRow={(t)=>{setInspectedTrade(t.trade_id);setPage("Inspector")}}
                 columns={[
                   "Date",
                   "Time",

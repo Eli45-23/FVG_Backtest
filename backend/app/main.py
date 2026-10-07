@@ -393,16 +393,30 @@ def export(id: str):
 
 @app.get("/api/backtests/{id}/candles/{trade_id}")
 def candles(id: str, trade_id: str):
-    t = next((t for t in artifact(id, "trades") if t["trade_id"] == trade_id), None)
-    if not t:
+    payload = trade_chart(id, trade_id)
+    return {**payload, "bars": payload["candles"]}
+
+
+@app.get("/api/backtests/{id}/trades/{trade_id}/chart")
+def trade_chart(id: str, trade_id: str, window: Literal["30", "60", "session"] = "30"):
+    from backend.app.charts import chart_payload
+
+    rows = artifact(id, "trades")
+    if not any(t["trade_id"] == trade_id for t in rows):
         raise HTTPException(404, "Trade not found")
-    bars = pq.read_table(reference.INPUTS["bars"]).to_pandas()
-    a = pd.Timestamp(t["entry_time_utc"]) - pd.Timedelta(minutes=30)
-    b = pd.Timestamp(t["exit_time_utc"]) + pd.Timedelta(minutes=15)
-    return {
-        "trade": t,
-        "bars": clean(bars.loc[bars.timestamp_utc.between(a, b)].to_dict("records")),
-    }
+    result = artifact(id, "result")
+    payload = chart_payload(rows, trade_id, window, result.get("management_events", []))
+    with db.Session() as s:
+        r = get(s, db.Run, id)
+        v = get(s, db.Version, r.strategy_version_id)
+        st = get(s, db.Strategy, v.strategy_id)
+        variant = s.get(db.Variant, r.variant_id) if r.variant_id else None
+        payload["run"] = {
+            "name": r.name,
+            "strategy_name": st.name,
+            "variant": variant.name if variant else None,
+        }
+    return payload
 
 
 @app.post("/api/compare")
