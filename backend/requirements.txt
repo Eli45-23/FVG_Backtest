@@ -1,0 +1,7 @@
+-r ../outputs/requirements_backtest.txt
+fastapi==0.142.2
+uvicorn==0.54.0
+sqlalchemy==2.1.3
+pydantic==2.13.5
+pytest==9.1.1
+httpx==0.28.1
