@@ -1,3 +1,5 @@
+import Experiments from "./Experiments";
+import VersionBrowser from "./VersionBrowser";
 import TradeInspector from "./TradeInspector";
 import { useState, useEffect, useRef } from "react";
 import Editor, { loader } from "@monaco-editor/react";
@@ -29,6 +31,7 @@ const nav = [
   ["Sweeps", SlidersHorizontal],
   ["Trades", Table2],
   ["Research", Search],
+  ["Experiments", FlaskConical],
   ["Data", Database],
   ["Settings", Settings],
 ] as const;
@@ -42,6 +45,11 @@ const initialSettings = {
   timeframe: "5m",
 };
 export default function App() {
+  const [researchSplits, setResearchSplits] = useState<any[]>([]),
+    [sweepSplit, setSweepSplit] = useState(""),
+    [advancedValidation, setAdvancedValidation] = useState(false);
+  const [strategyTab, setStrategyTab] = useState("Code"),
+    [versionFocus, setVersionFocus] = useState("");
   const [inspectedTrade, setInspectedTrade] = useState("");
   const [page, setPage] = useState("Dashboard"),
     [strategies, setStrategies] = useState<Strategy[]>([]),
@@ -98,6 +106,7 @@ export default function App() {
     setRuns(r);
     setVariants(v);
     setSweeps(sw);
+    setResearchSplits(await api("/research-splits"));
     return s as Strategy[];
   }
   useEffect(() => {
@@ -156,6 +165,8 @@ export default function App() {
   async function open(s: Strategy) {
     if (dirty && !confirm("Discard unsaved edits?")) return;
     setSelected(s);
+    setStrategyTab("Code");
+    setVersionFocus("");
     setSource(s.source);
     setName(s.name);
     setParams({});
@@ -250,7 +261,19 @@ export default function App() {
       name: name + " · " + sweepKey,
       parameter: sweepKey,
       values,
-      run: { ...submitBody(), strategy_version_id: s.version_id },
+      advanced_validation: advancedValidation,
+      run: {
+        ...submitBody(),
+        strategy_version_id: s.version_id,
+        segment: advancedValidation ? "validation" : "development",
+        research_split_id: sweepSplit || null,
+        settings: {
+          ...settings,
+          ...(researchSplits.find((x) => x.id === sweepSplit)?.ranges[
+            advancedValidation ? "validation" : "development"
+          ] || {}),
+        },
+      },
     });
     await refresh();
   }
@@ -443,6 +466,36 @@ export default function App() {
           </>
         )}
         {page === "Strategies" && (
+          <div className="tabs">
+            {["Code", "Versions", "Runs", "Variants"].map((t) => (
+              <button
+                key={t}
+                className={strategyTab === t ? "active" : ""}
+                onClick={() => setStrategyTab(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
+        {page === "Strategies" && strategyTab !== "Code" && selected && (
+          <VersionBrowser
+            strategyId={selected.id}
+            tab={strategyTab}
+            initialVersion={versionFocus}
+            onOpen={(id) =>
+              void guard(async () => {
+                await open(await api(`/strategies/${id}`));
+                await refresh();
+              })
+            }
+            onRun={(id) => {
+              setActive(id);
+              setPage("Backtest");
+            }}
+          />
+        )}
+        {page === "Strategies" && strategyTab === "Code" && (
           <div className="editor-layout">
             <section className="library">
               <h3>LIBRARY</h3>
@@ -640,7 +693,8 @@ export default function App() {
                 >
                   <option>development</option>
                   <option>validation</option>
-                  <option>out-of-sample</option>
+                  <option>full-sample</option>
+                  <option>ad-hoc</option>
                 </select>
               </label>
               <label>
@@ -675,7 +729,25 @@ export default function App() {
               {current && (
                 <>
                   <span className="badge">{current.status}</span>
+                  <button
+                    onClick={() =>
+                      void guard(async () => {
+                        const v = await api(
+                          `/versions/${current.strategy_version_id}`,
+                        );
+                        await open(await api(`/strategies/${v.strategy_id}`));
+                        setVersionFocus(v.id);
+                        setStrategyTab("Versions");
+                      })
+                    }
+                  >
+                    Exact source version
+                  </button>
                   <span>{current.progress}</span>
+                  <span className="run-type">
+                    {current.config.run_type ||
+                      current.config.segment?.toUpperCase()}
+                  </span>
                   {["queued", "running"].includes(current.status) && (
                     <button
                       onClick={() =>
@@ -727,6 +799,7 @@ export default function App() {
                     "R distribution",
                     "MFE / MAE",
                     "Duration",
+                    "Management",
                     "All metrics",
                     "Configuration",
                   ].map((t) => (
@@ -746,6 +819,18 @@ export default function App() {
                     <Curve rows={equity} series={["drawdown_usd"]} />
                   ) : resultTab === "Configuration" ? (
                     <pre>{JSON.stringify(current.config, null, 2)}</pre>
+                  ) : resultTab === "Management" ? (
+                    <>
+                      <Table
+                        rows={Object.entries(
+                          current.metrics.management || {},
+                        ).map(([metric, value]) => ({ metric, value }))}
+                      />
+                      <p>
+                        Stop history and activation events are available by
+                        opening a trade.
+                      </p>
+                    </>
                   ) : resultTab === "All metrics" ? (
                     <Table
                       rows={Object.entries(current.metrics.overall).map(
@@ -835,6 +920,7 @@ export default function App() {
                 "name",
                 "status",
                 "created_at",
+                "run_type",
                 "trades",
                 "net_pnl_usd",
                 "notes",
@@ -972,10 +1058,57 @@ export default function App() {
             )}
           </>
         )}
+        {page === "Experiments" && (
+          <Experiments
+            selected={selected}
+            params={params}
+            settings={settings}
+            variantId={variantId}
+            dirty={dirty}
+            onRun={(id) => {
+              setActive(id);
+              setPage("Backtest");
+            }}
+          />
+        )}
         {page === "Sweeps" && (
           <>
             <div className="panel">
               <h2>Single-parameter experiment</h2>
+              <label>
+                Research split for sweep
+                <select
+                  aria-label="Sweep research split"
+                  value={sweepSplit}
+                  onFocus={() =>
+                    void guard(async () =>
+                      setResearchSplits(await api("/research-splits")),
+                    )
+                  }
+                  onChange={(e) => setSweepSplit(e.target.value)}
+                >
+                  <option value="">Unscoped development · editor dates</option>
+                  {researchSplits.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={advancedValidation}
+                  onChange={(e) => setAdvancedValidation(e.target.checked)}
+                />
+                Advanced override: Validation sweep
+              </label>
+              <p className="warning">
+                {advancedValidation
+                  ? "Validation tuning consumes validation evidence; this override is saved."
+                  : "Sweeps default to Development. A selected split supplies its segment dates."}{" "}
+                Official OOS sweeps are blocked.
+              </p>
               <p>
                 Current strategy: {selected?.name || "Open a strategy first"}.
                 Uses the editor’s dates and base inputs.
@@ -1035,7 +1168,14 @@ export default function App() {
             ))}
           </>
         )}
-        {page === "Inspector" && <TradeInspector runId={active} tradeId={inspectedTrade} onNavigate={setInspectedTrade} onBack={()=>setPage("Trades")} />}
+        {page === "Inspector" && (
+          <TradeInspector
+            runId={active}
+            tradeId={inspectedTrade}
+            onNavigate={setInspectedTrade}
+            onBack={() => setPage("Trades")}
+          />
+        )}
         {page === "Trades" && (
           <>
             <div className="toolbar">
@@ -1074,6 +1214,7 @@ export default function App() {
                 <label key={k}>
                   {k}
                   <select
+                    aria-label={k}
                     value={filters[k] || ""}
                     onChange={(e) =>
                       setFilters({ ...filters, [k]: e.target.value })
@@ -1135,7 +1276,10 @@ export default function App() {
               <p>{tradeRows.length} matching trades</p>
               <Table
                 rows={tradeRows}
-                onRow={(t)=>{setInspectedTrade(t.trade_id);setPage("Inspector")}}
+                onRow={(t) => {
+                  setInspectedTrade(t.trade_id);
+                  setPage("Inspector");
+                }}
                 columns={[
                   "Date",
                   "Time",
