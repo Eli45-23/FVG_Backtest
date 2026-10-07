@@ -140,3 +140,73 @@ class StopUpdate:
 
     price: Decimal
     effective_after: object
+
+
+@dataclass(frozen=True)
+class MoveStop:
+    """Request only. The engine controls rounding, monotonicity and activation."""
+
+    price: Decimal
+    reason: str = "Strategy stop update"
+    trigger_type: str = "custom"
+    trigger_value: object = None
+
+
+@dataclass(frozen=True)
+class StopChange:
+    timestamp: object
+    activation_timestamp: object
+    previous_stop: Decimal
+    effective_stop: Decimal
+    reason: str
+
+
+@dataclass(frozen=True)
+class ManagementContext:
+    timestamp: object  # observed interval CLOSE / next minute START
+    event: str  # minute_close or bar_5m_close
+    entry_time: object
+    entry_price: Decimal
+    original_stop: Decimal
+    current_stop: Decimal
+    target: Decimal
+    direction: str
+    original_risk_points: Decimal
+    mfe_points: Decimal
+    mae_points: Decimal
+    minute: Bar
+    completed_bar: Bar | None
+    stop_history: tuple[StopChange, ...] = ()
+    tick_size: Decimal = Decimal(".25")
+
+    @property
+    def direction_sign(self):
+        return Decimal(1) if self.direction == "LONG" else Decimal(-1)
+
+    @property
+    def minutes_since_entry(self):
+        return int((self.timestamp - self.entry_time).total_seconds() / 60)
+
+    @property
+    def bars_since_entry(self):
+        return self.minutes_since_entry // 5
+
+    def price_at_r(self, r):
+        return (
+            self.entry_price
+            + self.direction_sign * self.original_risk_points * Decimal(str(r))
+        )
+
+    def touched_profit_points(self, points):
+        return self.mfe_points >= Decimal(str(points))
+
+    def reached_r(self, r):
+        return self.mfe_points >= self.original_risk_points * Decimal(str(r))
+
+    def completed_bar_holds_beyond_r(self, r):
+        b = self.completed_bar
+        return b is not None and (
+            b.low > self.price_at_r(r)
+            if self.direction == "LONG"
+            else b.high < self.price_at_r(r)
+        )

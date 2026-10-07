@@ -18,7 +18,11 @@ def load(source, values=None):
     if len(inspect.signature(obj.on_bar).parameters) != 2:
         raise ValueError("on_bar requires ctx and params")
     if hasattr(obj, "on_position"):
-        raise ValueError("Management hooks are reserved, not supported by engine v1")
+        raise ValueError("Use manage(ctx, params), not on_position")
+    if hasattr(obj, "manage") and (
+        not callable(obj.manage) or len(inspect.signature(obj.manage).parameters) != 2
+    ):
+        raise ValueError("manage requires ctx and params")
     if getattr(obj, "feature", "bars") not in ("bars", "fvg_second"):
         raise ValueError("Unsupported feature provider")
     inputs = getattr(obj, "inputs", [])

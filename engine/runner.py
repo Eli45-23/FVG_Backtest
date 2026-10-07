@@ -8,7 +8,7 @@ import pandas as pd
 from engine.legacy import reference as ref, metrics
 from engine.strategy import Entry
 from engine.strategy.loading import load
-from engine.data import dataset, contexts, execution_days
+from engine.data import dataset, contexts, execution_days, candle
 from engine.canonical import digest, clean
 
 
@@ -151,7 +151,34 @@ def run(source, params, config=RunConfig(), data=None, progress=lambda stage: No
             audit.append({"signal_id": s["signal_id"], "reason": reason})
         progress("Executing selected entries with validated 1-minute fills")
         groups = execution_days(data["minutes"]) if chosen else {}
-        trades = [ref.execute(s, groups[s["formation_date"]], cfg) for s in chosen]
+        management_events = []
+        managed = callable(getattr(strategy, "manage", None)) and p.get(
+            "management_enabled", True
+        )
+        if managed:
+            from engine.managed import execute as execute_managed
+
+            complete_bars = {
+                r.timestamp_utc: candle(r)
+                for r in data["bars"].itertuples(index=False)
+                if r.is_complete_5m
+            }
+            trades = []
+            for selected in chosen:
+                # A fresh manager prevents entry precomputation from leaking future state.
+                manager, _, _ = load(source, dict(p))
+                trade, events = execute_managed(
+                    selected,
+                    groups[selected["formation_date"]],
+                    cfg,
+                    manager,
+                    p,
+                    complete_bars,
+                )
+                trades.append(trade)
+                management_events.extend(events)
+        else:
+            trades = [ref.execute(s, groups[s["formation_date"]], cfg) for s in chosen]
         if config.quantity != 1:
             for t in trades:
                 t["quantity"] = config.quantity
@@ -200,4 +227,18 @@ def run(source, params, config=RunConfig(), data=None, progress=lambda stage: No
                 statistics.mean(t[f] for t in trades) if trades else None
             )
         _, curve = metrics.drawdown(trades)
-        return {"trades": trades, "summary": summary, "equity": curve, "audit": audit}
+        result = {"trades": trades, "summary": summary, "equity": curve, "audit": audit}
+        if managed:
+            summary["management"] = {
+                "events": len(management_events),
+                "management_exit_count": sum(t["management_exit"] for t in trades),
+                "average_locked_r_at_exit": (
+                    statistics.mean(t["locked_r_at_exit"] for t in trades)
+                    if trades
+                    else None
+                ),
+                "profit_protected_usd": None,
+                "version": "minute-close-next-start-v1",
+            }
+            result["management_events"] = management_events
+        return result

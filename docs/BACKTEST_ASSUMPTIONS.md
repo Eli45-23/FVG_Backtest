@@ -50,3 +50,28 @@ identity reproduce the same economic result. Run IDs/timestamps are intentionall
 for each saved execution. Core result JSON is stable; identity-enriched artifacts necessarily
 contain their own run_id. Arbitrary trusted Python can use randomness/network/clock; the
 platform cannot guarantee determinism for intentionally nondeterministic source.
+
+## v1.1 opt-in management contract
+Unmanaged sources continue to call the original executor. `manage(ctx, params)` opts
+into the versioned managed executor; the standard `management_enabled=False` input
+selects the original path. Entry/stop/target selection and daily locks remain unchanged.
+
+Minute M is evaluated with its already-active stop and fixed target. Stop wins simultaneous
+hits, adverse stop gaps use the worse open, full-minute extrema remain included. Exit
+(including 15:59 session close) suppresses all callbacks. For a survivor, minute-close
+and any complete 5m-close callbacks see the same pre-update stop. All requests at that
+confirmation compete; most protective valid request wins. It activates at the next minute
+START, equal to the observation's close timestamp, never earlier within minute M.
+Stop updates round outward to MNQ ticks, cannot loosen, and must remain strictly inside
+the original fixed target. A newly active stop beyond the next open uses adverse gap fill.
+Missing owned minutes fail; incomplete 5m candles produce no 5m management event.
+
+Callbacks get a fresh manager per trade, so precomputed future entry callbacks cannot
+leak mutable strategy state into management. Context/history are frozen; public helpers
+use original risk. Pure management should use that context and parameters, not external I/O.
+
+The Quality R-Step preset first requests +5 after a surviving +50 touch. Subsequent hold
+candles must START at/after that update's activation and fully close. Holds are strict:
+long low > threshold / short high < threshold. Qualifying 1R/1.5R/1.75R holds request
+1R/1.25R/1.5R; simultaneous thresholds use the most protective request. No sequential
+waiting between R tiers is invented. The target remains original 2R.
