@@ -30,3 +30,7 @@ Run `work/.venv/bin/python outputs/build_5m.py` to build and validate local five
 ## FVG formation layer
 
 Run `work/.venv/bin/python outputs/detect_fvgs.py` for deterministic bullish/bearish FVG formation and its validation report. See [FVG_LAYER.md](FVG_LAYER.md) for the exact contract, results and local evidence files. This layer contains no backtester or trade logic.
+
+## Same-day lifecycle and continuation research
+
+Run `work/.venv/bin/python outputs/fvg_lifecycle.py` and then `work/.venv/bin/python outputs/lifecycle_report.py`. [LIFECYCLE_LAYER.md](LIFECYCLE_LAYER.md) documents censoring, same-day event semantics, separate invalidation methods, pause definitions and reproducible commands. [LIFECYCLE_RESEARCH.md](LIFECYCLE_RESEARCH.md) contains the descriptive statistics and all requested direction/time-bin splits. This is not a backtester.
