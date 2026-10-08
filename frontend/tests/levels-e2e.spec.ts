@@ -7,6 +7,7 @@ test("development event study creation, summaries, chart and export", async ({
   await page
     .getByRole("button", { name: "Event Studies", exact: true })
     .click();
+  await page.getByLabel("Research engine").selectOption("1");
   await page.getByLabel("Study name").fill("Browser level foundation");
   await page.getByLabel("Study start").fill("2020-01-06");
   await page.getByLabel("Study end").fill("2020-01-08");

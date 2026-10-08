@@ -83,6 +83,8 @@ def chart_payload(
         ("stop_price", "Original stop", "stop"),
         ("target_price", "Original target", "target"),
     ]:
+        if field == "target_price" and t.get("partial_execution_history"):
+            continue
         add(
             type="horizontal_line",
             start_time=entry,
@@ -98,13 +100,33 @@ def chart_payload(
         label=t["direction"] + " entry",
         category="entry",
     )
-    add(
-        type="point_marker",
-        start_time=exit,
-        price=float(t["exit_price"]),
-        label=t["exit_reason"] + " exit",
-        category="exit",
-    )
+    if t.get("partial_execution_history"):
+        for fill in t["partial_execution_history"]:
+            add(
+                type="point_marker",
+                start_time=fill["timestamp"],
+                price=float(fill["exit_price"]),
+                label=f"{fill['leg']} ×{fill['quantity']} {fill['reason']}",
+                category="exit",
+            )
+        for leg in t.get("target_legs", []):
+            if leg["price"] is not None:
+                add(
+                    type="horizontal_line",
+                    start_time=entry,
+                    end_time=exit,
+                    price=float(leg["price"]),
+                    label=leg["name"],
+                    category="target",
+                )
+    else:
+        add(
+            type="point_marker",
+            start_time=exit,
+            price=float(t["exit_price"]),
+            label=t["exit_reason"] + " exit",
+            category="exit",
+        )
     if float(t.get("fvg_top", 0)) > float(t.get("fvg_bottom", 0)):
         add(
             type="box",

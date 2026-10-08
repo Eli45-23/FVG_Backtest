@@ -124,6 +124,17 @@ class Strategy:
         and rows[0]["partial_execution_history"]
     )
 
+    trade = rows[0]
+    chart = client.get(
+        f"/api/backtests/{r['id']}/trades/{trade['trade_id']}/chart"
+    ).json()
+    assert [a["price"] for a in chart["annotations"] if a["category"] == "exit"] == [
+        float(f["exit_price"]) for f in trade["partial_execution_history"]
+    ]
+    assert [a["price"] for a in chart["annotations"] if a["category"] == "target"] == [
+        float(l["price"]) for l in trade["target_legs"] if l["price"] is not None
+    ]
+
 
 def test_v2_artifacts_deterministic(client, upgraded):
     from test_event_studies import create

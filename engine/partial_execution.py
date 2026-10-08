@@ -38,6 +38,7 @@ def execute(s, minutes, cfg, quantity, plan, manager, params, complete_bars, end
                 "price": ref.tick(entry + sign * risk * rr) if rr is not None else None,
             }
         )
+    target_legs = [dict(leg) for leg in pending]
     if "ts_event" in minutes:
         minutes = minutes.set_index("ts_event", drop=False)
     at = s["entry_time_utc"]
@@ -208,6 +209,7 @@ def execute(s, minutes, cfg, quantity, plan, manager, params, complete_bars, end
         "initial_quantity": quantity,
         "remaining_quantity": 0,
         "partial_execution_history": fills,
+        "target_legs": target_legs,
         "exit_price": weighted,
         "weighted_exit": weighted,
         "exit_time_utc": exit_time,

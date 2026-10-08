@@ -43,3 +43,7 @@ Explicit leg quantities must match the sized quantity (no implicit proportional 
 `ctx.features` holds immutable per-timeframe snapshots; `ctx.levels` and `ctx.zones`
 are causal snapshots. Primary timeframe chooses callback frequency. The execution
 resolution remains 1 minute. Advanced feature definitions are described separately.
+
+Advanced plans retain a legacy reference `target_price` for compatibility; `target_legs` is
+the authoritative set of planned targets. Charts show leg targets and actual fill markers,
+not the weighted average as if it were an executed final fill.

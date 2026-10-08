@@ -31,6 +31,7 @@ export default function Experiments({
     [experimentName, setExperimentName] = useState("Controlled experiment"),
     [error, setError] = useState(""),
     [combined, setCombined] = useState<any>(null);
+  const [profile, setProfile] = useState("legacy_2024_2026");
   const current = experiments.find((e) => e.id === id);
   const guard = async (fn: () => Promise<void>) => {
     setError("");
@@ -80,6 +81,25 @@ export default function Experiments({
       <details className="panel">
         <summary>Create Research Split</summary>
         <label>
+          Split dataset profile
+          <select
+            aria-label="Split dataset profile"
+            value={profile}
+            onChange={(e) => {
+              setProfile(e.target.value);
+              if (e.target.value === "research_2020_2026")
+                setRanges({
+                  development: { start: "2020-01-01", end: "2024-01-01" },
+                  validation: { start: "2024-01-01", end: "2025-01-01" },
+                  "out-of-sample": { start: "2025-01-01", end: "2026-10-06" },
+                });
+            }}
+          >
+            <option>legacy_2024_2026</option>
+            <option>research_2020_2026</option>
+          </select>
+        </label>
+        <label>
           Split name
           <input
             aria-label="Split name"
@@ -114,7 +134,11 @@ export default function Experiments({
         <button
           onClick={() =>
             void guard(async () => {
-              const r = await api("/research-splits", { name, ranges });
+              const r = await api("/research-splits", {
+                name,
+                ranges,
+                dataset_profile: profile,
+              });
               setSplit(r.id);
               await refresh();
             })

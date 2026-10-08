@@ -294,3 +294,31 @@ def test_swing_progression(kind, prices, progression):
             s.update(b, b.timestamp + ref.FIVE)
             idx += 1
     assert s.progression[kind] == progression
+
+
+def test_runner_management_only_activates_after_confirmation():
+    class Manager:
+        def manage(self, ctx, params):
+            assert ctx.initial_quantity == 2
+            if ctx.remaining_quantity == 1 and ctx.current_stop < D(103):
+                assert len(ctx.partial_fills) == 1
+                return MoveStop(D(103), "Runner structural request")
+
+    plan = PositionPlan(
+        "LONG", D(90), legs=(TargetLeg(1, D(1), "TP1"), TargetLeg(1, None, "runner"))
+    )
+    trade, events = sim(
+        [(100, 111, 95, 109), (109, 110, 102, 104)], plan, manager=Manager()
+    )
+    assert (
+        trade["net_pnl_usd"] == 26
+        and events[0]["activation_timestamp"] == BASE + ref.ONE
+    )
+
+
+def test_vwap_missing_contribution_is_unavailable():
+    indicator = Indicators()
+    assert indicator.update(bar(0), BASE)["vwap"] is not None
+    indicator.update(bar(1), BASE + ref.FIVE, complete=False)
+    result = indicator.update(bar(2), BASE + 2 * ref.FIVE)
+    assert result["vwap"] is None and not result["vwap_complete"]

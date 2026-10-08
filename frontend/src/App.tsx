@@ -1,3 +1,4 @@
+import ExecutionSettings from "./ExecutionSettings";
 import EventStudies from "./EventStudies";
 import Experiments from "./Experiments";
 import VersionBrowser from "./VersionBrowser";
@@ -38,6 +39,11 @@ const nav = [
   ["Settings", Settings],
 ] as const;
 const initialSettings = {
+  execution_mode: "legacy_v1",
+  max_trades_per_day: 1 as number | null,
+  sizing_mode: "FIXED_QUANTITY",
+  risk_budget: "100",
+  dataset_profile: "legacy_2024_2026",
   start: "2024-01-01",
   end: "2026-10-06",
   quantity: 1,
@@ -646,13 +652,33 @@ export default function App() {
               </label>
               <Inputs inputs={inputs} values={params} onChange={setParams} />
               <h3>BACKTEST SETTINGS</h3>
+              <label>
+                Dataset profile
+                <select
+                  aria-label="Dataset profile"
+                  value={settings.dataset_profile}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      dataset_profile: e.target.value,
+                    })
+                  }
+                >
+                  <option>legacy_2024_2026</option>
+                  <option>research_2020_2026</option>
+                </select>
+              </label>
               {(["start", "end"] as const).map((k) => (
                 <label key={k}>
                   {k === "start" ? "Start date" : "End date (exclusive)"}
                   <input
                     aria-label={k + " date"}
                     type="date"
-                    min={data?.start}
+                    min={
+                      settings.dataset_profile === "research_2020_2026"
+                        ? "2020-01-01"
+                        : data?.start
+                    }
                     max={data?.end}
                     value={settings[k]}
                     onChange={(e) =>
@@ -661,11 +687,7 @@ export default function App() {
                   />
                 </label>
               ))}
-              <p className="muted">
-                MNQ · 5m · Full XNYS sessions
-                <br />
-                One actual trade per NY date
-              </p>
+              <ExecutionSettings value={settings} onChange={setSettings} />
               {(["quantity", "commission", "slippage"] as const).map((k) => (
                 <label key={k}>
                   {k}

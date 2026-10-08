@@ -1,3 +1,4 @@
+import NumericResearch, { numericFields } from "./NumericResearch";
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { Table } from "./components";
@@ -28,6 +29,14 @@ export default function EventStudies() {
     [pmEnd, setPmEnd] = useState("");
   const [penetration, setPenetration] = useState("0"),
     [clearance, setClearance] = useState("0.25");
+  const [overlays, setOverlays] = useState<string[]>(["level", "event"]);
+  const [numeric, setNumeric] = useState<Record<string, any>>({});
+  const [group, setGroup] = useState("year");
+  const [threshold, setThreshold] = useState("points:50");
+  const [sort, setSort] = useState("timestamp_utc");
+  const [descending, setDescending] = useState(false);
+  const [advanced, setAdvanced] = useState("{}");
+  const [version, setVersion] = useState(2);
   const current = studies.find((s) => s.id === active);
   async function guard(fn: () => Promise<void>) {
     setError("");
@@ -58,16 +67,34 @@ export default function EventStudies() {
     let disposed = false;
     const query = new URLSearchParams(filters).toString();
     guard(async () => {
-      const e = await api(
-        `/level-research/studies/${active}/events?${query}&offset=${offset}`,
-      );
+      const v2 = current.config.research_version === 2;
+      const body = {
+        filters,
+        numeric,
+        group,
+        horizon,
+        interpretation,
+        offset,
+        sort,
+        descending,
+        ...(threshold.startsWith("atr:")
+          ? { threshold_atr: Number(threshold.split(":")[1]) }
+          : { threshold: Number(threshold.split(":")[1]) }),
+      };
+      const e = v2
+        ? await api(`/level-research/studies/${active}/query`, body)
+        : await api(
+            `/level-research/studies/${active}/events?${query}&offset=${offset}`,
+          );
       if (disposed) return;
       setRows(e.events);
       setCount(e.count);
       if (current.outcomes_available) {
-        const s = await api(
-          `/level-research/studies/${active}/summary?${query}&horizon=${horizon}&interpretation=${interpretation}`,
-        );
+        const s = v2
+          ? await api(`/level-research/studies/${active}/statistics`, body)
+          : await api(
+              `/level-research/studies/${active}/summary?${query}&horizon=${horizon}&interpretation=${interpretation}`,
+            );
         if (!disposed) setSummary(s);
       }
     });
@@ -82,6 +109,11 @@ export default function EventStudies() {
     offset,
     horizon,
     interpretation,
+    numeric,
+    group,
+    threshold,
+    sort,
+    descending,
   ]);
   async function submit() {
     await guard(async () => {
@@ -95,7 +127,15 @@ export default function EventStudies() {
         session.premarket_start = pmStart;
         session.premarket_end = pmEnd;
       }
-      const r = await api("/level-research/studies", { ...form, session });
+      const r = await api("/level-research/studies", {
+        ...form,
+        session,
+        research_version: version,
+        research_settings:
+          version === 2
+            ? { ...JSON.parse(advanced), numeric_filters: numeric }
+            : {},
+      });
       await refresh();
       setActive(r.id);
       setOffset(0);
@@ -115,6 +155,37 @@ export default function EventStudies() {
       )}
       <div className="panel">
         <h3>Create immutable study</h3>
+        <label>
+          Research engine
+          <select
+            aria-label="Research engine"
+            value={version}
+            onChange={(e) => setVersion(Number(e.target.value))}
+          >
+            <option value={2}>
+              v2 · structure, sequences, columnar confidence
+            </option>
+            <option value={1}>v1 · legacy level study</option>
+          </select>
+        </label>
+        {version === 2 && (
+          <>
+            <NumericResearch value={numeric} onChange={setNumeric} />
+            <details>
+              <summary>Explicit mechanical configuration</summary>
+              <p>
+                Optional JSON: frame, indicators, structure, zones, sequences,
+                statistics, atr_thresholds. Defaults are recorded in the
+                immutable snapshot. No automatic optimization.
+              </p>
+              <textarea
+                aria-label="Mechanical research settings"
+                value={advanced}
+                onChange={(e) => setAdvanced(e.target.value)}
+              />
+            </details>
+          </>
+        )}
         <div className="level-form">
           <label>
             Name
@@ -241,6 +312,10 @@ export default function EventStudies() {
             value={active}
             onChange={(e) => {
               setActive(e.target.value);
+              setNumeric(
+                studies.find((s) => s.id === e.target.value)?.config
+                  ?.research_settings?.numeric_filters ?? {},
+              );
               setOffset(0);
             }}
           >
@@ -303,7 +378,26 @@ export default function EventStudies() {
           </details>
           <div className="level-form">
             {Object.entries({
-              level_type: ["PDH", "PDL", "PMH", "PML", "O5H", "O5L"],
+              level_type: [
+                "PDH",
+                "PDL",
+                "PMH",
+                "PML",
+                "O5H",
+                "O5L",
+                ...(current.config.research_version === 2
+                  ? [
+                      "5m_SWING_HIGH",
+                      "5m_SWING_LOW",
+                      "4h_SWING_HIGH",
+                      "4h_SWING_LOW",
+                      "SUPPLY",
+                      "DEMAND",
+                      "5m_STRUCTURE",
+                      "4h_STRUCTURE",
+                    ]
+                  : []),
+              ],
               interaction_type: [
                 "TOUCH",
                 "SWEEP_RECLAIM",
@@ -311,6 +405,25 @@ export default function EventStudies() {
                 "RETEST",
                 "REJECTION",
               ],
+              ...(current.config.research_version === 2
+                ? {
+                    compound_interaction: [
+                      "BREAK_NEXT_CANDLE_CLOSE_HOLD",
+                      "BREAK_NEXT_CANDLE_FULL_HOLD",
+                      "BREAK_FAILED_NEXT_CANDLE_HOLD",
+                      "BREAK_RETEST",
+                      "BREAK_RETEST_HOLD",
+                      "BREAK_RETEST_FULL_HOLD",
+                      "BREAK_RETEST_FAIL",
+                      "SWEEP_RECLAIM_CONFIRMATION",
+                      "REJECTION_CONFIRMATION",
+                    ],
+                    approach_side: ["ABOVE", "BELOW", "ON_LEVEL"],
+                    month: Array.from({ length: 12 }, (_, i) => String(i + 1)),
+                    structure_state: ["BULLISH", "BEARISH", "NEUTRAL"],
+                    ema_alignment: ["BULLISH", "BEARISH", "NEUTRAL"],
+                  }
+                : {}),
               direction: ["UP", "DOWN", "UNKNOWN"],
               touch_number: ["1", "2", "3", "3+"],
               time_bucket: [
@@ -385,7 +498,84 @@ export default function EventStudies() {
               </a>
             </div>
           )}
-          {summary && (
+          {current.config.research_version === 2 && (
+            <label>
+              Outcome threshold
+              <select
+                aria-label="Outcome threshold"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+              >
+                {[10, 25, 50, 75, 100].map((n) => (
+                  <option key={n} value={"points:" + n}>
+                    {n} points
+                  </option>
+                ))}
+                {(current.config.research_settings.atr_thresholds ?? []).map(
+                  (n: number) => (
+                    <option key={"atr" + n} value={"atr:" + n}>
+                      {n} ATR
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          )}
+          {current.config.research_version === 2 && (
+            <label>
+              Group results
+              <select
+                aria-label="Research grouping"
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+              >
+                {[
+                  "year",
+                  "month",
+                  "time_bucket",
+                  "level_type",
+                  "interaction_type",
+                  "direction",
+                  "touch_number",
+                  "volatility_bucket",
+                  "atr_regime",
+                  "structure_state",
+                  "ema_alignment",
+                  "vwap_alignment",
+                  ...numericFields.filter((k) => numeric[k]?.edges?.length),
+                ].map((k) => (
+                  <option key={k}>{k}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {summary && !summary.overall && (
+            <>
+              <h3>Date-clustered matched evidence</h3>
+              {summary.groups.some((r: any) => r.small_sample) && (
+                <p className="warning">
+                  Small sample: one or more groups have fewer than the
+                  configured minimum matched dates. Confidence estimates are
+                  unstable.
+                </p>
+              )}
+              <p>
+                {summary.methodology}. Threshold:{" "}
+                {summary.threshold_atr ?? summary.threshold_points}{" "}
+                {summary.threshold_atr == null ? "points" : "ATR"}.
+                Probabilities are fractions. Small samples do not support
+                reliable inference.
+              </p>
+              <Table
+                rows={summary.groups.map((r: any) => ({
+                  ...r,
+                  ci95: JSON.stringify(r.ci95),
+                  small_sample: r.small_sample ? "SMALL SAMPLE" : "",
+                }))}
+              />
+            </>
+          )}
+          {summary?.overall && (
             <>
               <h3>
                 Forward outcomes · {summary.overall.complete_outcomes} complete
@@ -443,6 +633,41 @@ export default function EventStudies() {
               ))}
             </>
           )}
+          {current.config.research_version === 2 && (
+            <div className="toolbar">
+              <label>
+                Sort all matching events
+                <select
+                  aria-label="Event sort"
+                  value={sort}
+                  onChange={(e) => {
+                    setSort(e.target.value);
+                    setOffset(0);
+                  }}
+                >
+                  {[
+                    "timestamp_utc",
+                    "level_type",
+                    "interaction_type",
+                    ...numericFields,
+                  ].map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={descending}
+                  onChange={(e) => {
+                    setDescending(e.target.checked);
+                    setOffset(0);
+                  }}
+                />
+                Descending
+              </label>
+            </div>
+          )}
           <h3>Event audit · {count} records</h3>
           <p>
             Click a row to inspect classification. Multiple classes may describe
@@ -493,7 +718,36 @@ export default function EventStudies() {
                 {chart.event.level_type} · {chart.event.interaction_type}
               </h3>
               {chart.future_hidden && <p>Future candles hidden</p>}
-              <CandleChart data={chart} />
+              <div className="toolbar">
+                {Array.from(
+                  new Set<string>(
+                    chart.annotations.map((a: any) => a.category),
+                  ),
+                ).map((k) => (
+                  <label key={k}>
+                    <input
+                      type="checkbox"
+                      checked={overlays.includes(k)}
+                      onChange={(e) =>
+                        setOverlays(
+                          e.target.checked
+                            ? [...overlays, k]
+                            : overlays.filter((v) => v !== k),
+                        )
+                      }
+                    />
+                    {k}
+                  </label>
+                ))}
+              </div>
+              <CandleChart
+                data={{
+                  ...chart,
+                  annotations: chart.annotations.filter((a: any) =>
+                    overlays.includes(a.category),
+                  ),
+                }}
+              />
               <details>
                 <summary>Event metadata</summary>
                 <pre>{JSON.stringify(chart.event, null, 2)}</pre>

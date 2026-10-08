@@ -614,3 +614,6 @@ details.panel summary {
 .event-studies pre { max-height: 360px; overflow: auto; white-space: pre-wrap; }
 .event-studies details { padding: 10px 0; border-bottom: 1px solid #263648; }
 .event-studies .panel { margin: 14px 0; padding: 16px; border: 1px solid #263648; }
+
+.event-studies input[type="checkbox"] { width: auto; margin-right: .4rem; }
+.event-studies .toolbar label:has(input[type="checkbox"]) { display: inline-flex; align-items: center; gap: .25rem; }

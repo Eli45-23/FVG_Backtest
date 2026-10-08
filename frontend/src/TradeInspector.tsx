@@ -300,6 +300,12 @@ export default function TradeInspector({
             <div>
               <h3>Management events</h3>
               <Table rows={data.management_events} />
+              {t.partial_execution_history && (
+                <>
+                  <h3>Partial execution history</h3>
+                  <Table rows={t.partial_execution_history} />
+                </>
+              )}
               <h3>Strategy metadata</h3>
               <pre>{JSON.stringify(t.metadata || {}, null, 2)}</pre>
             </div>

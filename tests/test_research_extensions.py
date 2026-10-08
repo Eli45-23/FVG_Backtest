@@ -182,3 +182,47 @@ def test_invalid_ohlc_resets_sequence():
     s.update(row(0), [event()])
     assert not s.update(row(1, low=110, high=105), [])
     assert not s.update(row(2), [event(2, "RETEST")])
+
+
+def test_atr_labels_use_event_atr_and_minute_end_time(tmp_path, monkeypatch):
+    from engine.research import study2
+    from engine.research.columnar import query
+    import json
+
+    raw = pd.DataFrame(
+        dict(
+            ts_event=pd.date_range(AT, periods=60, freq="min"),
+            open=100_000_000_000,
+            high=104_000_000_000,
+            low=98_000_000_000,
+            close=102_000_000_000,
+            volume=1,
+        )
+    )
+    monkeypatch.setattr(study2, "source", lambda config: raw.copy())
+    e = Writer(tmp_path / "v2_events.parquet")
+    e.add(
+        dict(
+            event_id="test",
+            date="2020-01-06",
+            timestamp_utc=str(AT),
+            session_close=str(AT + pd.Timedelta(minutes=60)),
+            price_at_event=100,
+            direction="UP",
+            atr14=2,
+        )
+    )
+    e.close()
+    b = Writer(tmp_path / "v2_observations.parquet")
+    b.close()
+    study2.labels({"research_settings": {"atr_thresholds": [0.5, 1, 2, 3]}}, tmp_path)
+    out = json.loads(
+        query(tmp_path, "SELECT payload FROM outcomes WHERE horizon='5'")[0]["payload"]
+    )
+    assert (
+        out["mfe_atr"] == 2
+        and out["mae_atr"] == 1
+        and out["forward_close_change_atr"] == 1
+    )
+    assert out["atr_thresholds"]["up_2"] == {"reached": True, "minutes": 1}
+    assert out["atr_thresholds"]["up_3"] == {"reached": False, "minutes": None}
