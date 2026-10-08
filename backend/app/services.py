@@ -8,6 +8,7 @@ from sqlalchemy import select
 from backend.app import db
 from engine.canonical import digest, dumps, clean
 from engine.data import identities
+from engine.execution_profiles import data_hashes, source_identity
 from engine.legacy import ROOT, reference
 from engine.runner import RunConfig
 
@@ -172,7 +173,7 @@ def enqueue(
     check = validate(source, parameters)
     if not check["valid"]:
         raise ValueError(check.get("error", "Invalid strategy"))
-    hashes = identities()
+    hashes = data_hashes(cfg.dataset_profile)
     snapshot = {
         "strategy_id": strategy_id,
         "strategy_version": number,
@@ -181,6 +182,8 @@ def enqueue(
         "settings": cfg.__dict__,
         "engine_version": engine_version(),
         "data_hashes": hashes,
+        "dataset_profile": cfg.dataset_profile,
+        "dataset_identity": source_identity(cfg.dataset_profile),
         "session": "XNYS full sessions / NY calendar date / one trade per day",
         "execution": "minute-start ownership; stop first; fixed bracket; session close; exit-minute extrema",
         "segment": segment,
@@ -249,10 +252,9 @@ def execute(rid):
     try:
         with db.Session() as s:
             snapshot = s.get(db.Run, rid).config
-            if (
-                snapshot["engine_version"] != engine_version()
-                or snapshot["data_hashes"] != identities()
-            ):
+            if snapshot["engine_version"] != engine_version() or snapshot[
+                "data_hashes"
+            ] != data_hashes(snapshot.get("dataset_profile", "legacy_2024_2026")):
                 raise ValueError(
                     "Engine or data changed after queueing; clone with the current identity"
                 )
@@ -277,7 +279,10 @@ def execute(rid):
             result = json.loads((root / "result.json").read_text())
             if p.returncode or "error" in result:
                 raise ValueError(result.get("error", "Strategy worker failed"))
-            if identities() != r.config["data_hashes"]:
+            if (
+                data_hashes(r.config.get("dataset_profile", "legacy_2024_2026"))
+                != r.config["data_hashes"]
+            ):
                 raise ValueError("Source data changed during execution")
             for t in result["trades"]:
                 t.update(

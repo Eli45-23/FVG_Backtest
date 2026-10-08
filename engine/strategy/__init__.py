@@ -123,6 +123,10 @@ class Context:
     instrument: str = "MNQ"
     tick_size: Decimal = Decimal(".25")
     position: None = None  # v1 is flat-only entry callbacks, one actual trade/day
+    frames: object = None
+    features: object = None
+    levels: tuple = ()
+    zones: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -211,3 +215,11 @@ class ManagementContext:
             if self.direction == "LONG"
             else b.high < self.price_at_r(r)
         )
+
+
+def __getattr__(name):
+    if name in ("PositionPlan", "TargetLeg", "PositionManagementContext"):
+        from engine import position
+
+        return getattr(position, name)
+    raise AttributeError(name)

@@ -1,7 +1,7 @@
 """Generic flat-entry strategy adapter over the unchanged minute fill engine."""
 
 from decimal import Decimal as D, localcontext, ROUND_FLOOR, ROUND_CEILING
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 import hashlib, statistics
 import pandas as pd
@@ -21,17 +21,44 @@ class RunConfig:
     slippage: int = 0
     instrument: str = "MNQ"
     timeframe: str = "5m"
+    dataset_profile: str = "legacy_2024_2026"
+    execution_mode: str = "legacy_v1"
+    max_trades_per_day: int | None = 1
+    sizing_mode: str = "FIXED_QUANTITY"
+    risk_budget: str = "100"
+    frame_config: dict = field(
+        default_factory=lambda: {
+            "anchor": "00:00",
+            "timezone": "UTC",
+            "session": "extended",
+        }
+    )
+    feature_config: dict = field(default_factory=dict)
 
     def validate(self):
         a, b = date.fromisoformat(self.start), date.fromisoformat(self.end)
-        if not date(2024, 1, 1) <= a < b <= date(2026, 10, 6):
-            raise ValueError(
-                "Date range must lie within 2024-01-01 to 2026-10-06 (end exclusive)"
-            )
+        from engine.research.profiles import profile
+
+        profile(self.dataset_profile).validate(self.start, self.end)
         if not isinstance(self.quantity, int) or not 1 <= self.quantity <= 100:
             raise ValueError("Quantity must be 1–100")
-        if self.instrument != "MNQ" or self.timeframe != "5m":
-            raise ValueError("Engine v1 supports MNQ / 5m only")
+        from engine.timeframes import MINUTES, FrameConfig
+
+        if self.instrument != "MNQ" or self.timeframe not in MINUTES:
+            raise ValueError("Supported: MNQ, 1m/5m/15m/4h")
+        FrameConfig(**self.frame_config).validate()
+        if self.execution_mode not in ("legacy_v1", "extended_v1"):
+            raise ValueError("Unknown execution mode")
+        if self.max_trades_per_day is not None and (
+            type(self.max_trades_per_day) is not int or self.max_trades_per_day < 1
+        ):
+            raise ValueError("Daily limit must be positive or null for unlimited")
+        if (
+            self.sizing_mode not in ("FIXED_QUANTITY", "FIXED_DOLLAR_RISK")
+            or not D(self.risk_budget).is_finite()
+            or D(self.risk_budget) <= 0
+        ):
+            raise ValueError("Invalid risk sizing")
         ref.Config(D(self.commission), self.slippage)
 
 
@@ -80,9 +107,24 @@ def signal(ctx, direction):
 
 def run(source, params, config=RunConfig(), data=None, progress=lambda stage: None):
     config.validate()
+    if (
+        config.execution_mode == "extended_v1"
+        or config.max_trades_per_day != 1
+        or config.timeframe != "5m"
+        or config.sizing_mode != "FIXED_QUANTITY"
+    ):
+        from engine.extended_runner import run as extended
+
+        return extended(source, params, config, data, progress)
     strategy, p, _ = load(source, params)
-    data = data if data is not None else dataset()
-    days, _ = ref.full_sessions()
+    from engine.execution_profiles import load_data
+
+    data = (
+        data
+        if data is not None
+        else load_data(config, getattr(strategy, "feature", "bars"))
+    )
+    days, _ = ref.full_sessions(config.start, config.end)
     chosen = []
     eligible = []
     locked = set()
@@ -106,6 +148,10 @@ def run(source, params, config=RunConfig(), data=None, progress=lambda stage: No
             order = strategy.on_bar(ctx, p)
             if order is None:
                 continue
+            from engine.position import PositionPlan
+
+            if isinstance(order, PositionPlan):
+                raise ValueError("PositionPlan requires extended_v1 execution mode")
             if not isinstance(order, Entry) or order.direction not in ("LONG", "SHORT"):
                 raise ValueError("on_bar must return Entry(LONG/SHORT) or None")
             sign = D(1) if order.direction == "LONG" else D(-1)

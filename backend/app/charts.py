@@ -44,7 +44,11 @@ class Annotation(BaseModel):
         return self
 
 
-def chart_payload(rows, trade_id, window="30", events=()):
+def chart_payload(
+    rows, trade_id, window="30", events=(), dataset_profile="legacy_2024_2026"
+):
+    from engine.research.profiles import profile
+
     index = next((i for i, t in enumerate(rows) if t["trade_id"] == trade_id), None)
     if index is None:
         raise ValueError("Invalid trade ID")
@@ -63,7 +67,7 @@ def chart_payload(rows, trade_id, window="30", events=()):
     )
     b = end if window == "session" else min(end, exit + pd.Timedelta(minutes=15))
     bars = pq.read_table(
-        reference.INPUTS["bars"],
+        profile(dataset_profile).bars,
         filters=[("timestamp_utc", ">=", a), ("timestamp_utc", "<", b)],
     ).to_pandas()
     bars = bars.sort_values("timestamp_utc")

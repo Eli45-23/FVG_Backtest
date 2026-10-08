@@ -96,13 +96,28 @@ class VariantBody(Payload):
 
 
 class RunSettings(Payload):
+    dataset_profile: Literal["legacy_2024_2026", "research_2020_2026"] = (
+        "legacy_2024_2026"
+    )
     start: str = "2024-01-01"
     end: str = "2026-10-06"
     quantity: int = Field(default=1, ge=1, le=100)
     commission: str = "0"
     slippage: int = Field(default=0, ge=0)
     instrument: Literal["MNQ"] = "MNQ"
-    timeframe: Literal["5m"] = "5m"
+    timeframe: Literal["1m", "5m", "15m", "4h"] = "5m"
+    execution_mode: Literal["legacy_v1", "extended_v1"] = "legacy_v1"
+    max_trades_per_day: int | None = Field(default=1, ge=1)
+    sizing_mode: Literal["FIXED_QUANTITY", "FIXED_DOLLAR_RISK"] = "FIXED_QUANTITY"
+    risk_budget: str = "100"
+    frame_config: dict = Field(
+        default_factory=lambda: {
+            "anchor": "00:00",
+            "timezone": "UTC",
+            "session": "extended",
+        }
+    )
+    feature_config: dict = Field(default_factory=dict)
 
 
 class RunBody(Payload):
@@ -450,7 +465,13 @@ def trade_chart(id: str, trade_id: str, window: Literal["30", "60", "session"] =
     if not any(t["trade_id"] == trade_id for t in rows):
         raise HTTPException(404, "Trade not found")
     result = artifact(id, "result")
-    payload = chart_payload(rows, trade_id, window, result.get("management_events", []))
+    payload = chart_payload(
+        rows,
+        trade_id,
+        window,
+        result.get("management_events", []),
+        run(id)["config"].get("dataset_profile", "legacy_2024_2026"),
+    )
     with db.Session() as s:
         r = get(s, db.Run, id)
         v = get(s, db.Version, r.strategy_version_id)
