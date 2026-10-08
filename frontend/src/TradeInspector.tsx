@@ -104,6 +104,7 @@ export function CandleChart({ data }: { data: any }) {
         if (label) e.textContent = label;
         svg.appendChild(e);
       };
+      let markerRow = 0;
       for (const a of data.annotations) {
         const color =
           a.category === "stop"
@@ -151,11 +152,13 @@ export function CandleChart({ data }: { data: any }) {
           {
             x: x1 + 5,
             y:
-              a.type === "box"
-                ? y(a.price_high) - 5
-                : a.type === "point_marker"
-                  ? py + 16
-                  : py - 7,
+              a.type === "vertical_marker"
+                ? 18 + markerRow++ * 16
+                : a.type === "box"
+                  ? y(a.price_high) - 5
+                  : a.type === "point_marker"
+                    ? py + 16
+                    : py - 7,
             fill: color,
             "font-size": 11,
           },

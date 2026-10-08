@@ -1,3 +1,4 @@
+import { newYorkTime, eventStages } from "./researchDisplay";
 import NumericResearch, { numericFields } from "./NumericResearch";
 import { useEffect, useState } from "react";
 import { api } from "./api";
@@ -29,7 +30,11 @@ export default function EventStudies() {
     [pmEnd, setPmEnd] = useState("");
   const [penetration, setPenetration] = useState("0"),
     [clearance, setClearance] = useState("0.25");
-  const [overlays, setOverlays] = useState<string[]>(["level", "event"]);
+  const [overlays, setOverlays] = useState<string[]>([
+    "level",
+    "event",
+    "sequence",
+  ]);
   const [numeric, setNumeric] = useState<Record<string, any>>({});
   const [group, setGroup] = useState("year");
   const [threshold, setThreshold] = useState("points:50");
@@ -566,7 +571,43 @@ export default function EventStudies() {
                 Probabilities are fractions. Small samples do not support
                 reliable inference.
               </p>
+              <p>
+                Scroll horizontally or focus the table and use arrow keys to
+                inspect every column.
+              </p>
               <Table
+                label="Date-clustered evidence"
+                columns={[
+                  "grp",
+                  "events",
+                  "complete",
+                  "censored",
+                  "matched_dates",
+                  "event_probability",
+                  "baseline_probability",
+                  "effect",
+                  "ci95",
+                  "p_value",
+                  "q_value",
+                  "small_sample",
+                  ...Object.keys(summary.groups[0] ?? {}).filter(
+                    (k) =>
+                      ![
+                        "grp",
+                        "events",
+                        "complete",
+                        "censored",
+                        "matched_dates",
+                        "event_probability",
+                        "baseline_probability",
+                        "effect",
+                        "ci95",
+                        "p_value",
+                        "q_value",
+                        "small_sample",
+                      ].includes(k),
+                  ),
+                ]}
                 rows={summary.groups.map((r: any) => ({
                   ...r,
                   ci95: JSON.stringify(r.ci95),
@@ -674,7 +715,10 @@ export default function EventStudies() {
             the same level/candle observation.
           </p>
           <Table
-            rows={rows}
+            rows={rows.map((e) => ({
+              ...e,
+              timestamp_ny: newYorkTime(e.timestamp_utc),
+            }))}
             columns={[
               "timestamp_ny",
               "level_type",
@@ -717,6 +761,12 @@ export default function EventStudies() {
               <h3>
                 {chart.event.level_type} · {chart.event.interaction_type}
               </h3>
+              <p>
+                Event confirmed: {newYorkTime(chart.event.timestamp_utc)} ·
+                Level available: {newYorkTime(chart.event.level_available_at)} ·
+                Source date: {chart.event.level_source_date}
+              </p>
+              <Table rows={eventStages(chart)} />
               {chart.future_hidden && <p>Future candles hidden</p>}
               <div className="toolbar">
                 {Array.from(

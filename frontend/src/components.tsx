@@ -89,8 +89,10 @@ export function Table({
   rows,
   columns,
   onRow,
+  label,
 }: {
   rows: any[];
+  label?: string;
   columns?: string[];
   onRow?: (r: any) => void;
 }) {
@@ -114,7 +116,12 @@ export function Table({
     [rows, sort, desc],
   );
   return (
-    <div className="table-scroll">
+    <div
+      className="table-scroll"
+      tabIndex={0}
+      role={label ? "region" : undefined}
+      aria-label={label}
+    >
       <table>
         <thead>
           <tr>
