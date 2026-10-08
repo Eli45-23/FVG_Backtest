@@ -107,6 +107,7 @@ class RunSettings(Payload):
     instrument: Literal["MNQ"] = "MNQ"
     timeframe: Literal["1m", "5m", "15m", "4h"] = "5m"
     execution_mode: Literal["legacy_v1", "extended_v1"] = "legacy_v1"
+    session_policy: Literal["XNYS_FULL", "XNYS_ALL"] = "XNYS_FULL"
     max_trades_per_day: int | None = Field(default=1, ge=1)
     sizing_mode: Literal["FIXED_QUANTITY", "FIXED_DOLLAR_RISK"] = "FIXED_QUANTITY"
     risk_budget: str = "100"

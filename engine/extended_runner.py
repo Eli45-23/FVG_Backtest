@@ -12,7 +12,7 @@ from engine.data import candle, execution_days, contexts
 from engine.timeframes import aggregate, FrameConfig, MINUTES
 from engine.features import FeatureHub, frozen
 from engine.legacy import reference as ref, metrics
-from engine.research.levels import schedule
+from engine.research.levels import schedule, SessionConfig
 from engine.partial_execution import execute
 
 
@@ -41,7 +41,11 @@ def run(source, params, config, data=None, progress=lambda stage: None):
     framecfg = FrameConfig(**config.frame_config)
     frames = {tf: aggregate(raw, tf, framecfg) for tf in ["1m", "15m", "4h"]}
     frames["5m"] = data["bars"]
-    hub = FeatureHub(frames, settings=config.feature_config)
+    hub = FeatureHub(
+        frames,
+        settings=config.feature_config,
+        session=SessionConfig(**config.feature_config.get("session", {})),
+    )
     groups = execution_days(raw)
     sessions = schedule()
     days, _ = ref.full_sessions(config.start, config.end)
@@ -93,7 +97,7 @@ def run(source, params, config, data=None, progress=lambda stage: None):
         if (
             not config.start <= day < config.end
             or not session
-            or day not in days
+            or (config.session_policy == "XNYS_FULL" and day not in days)
             or not session[0] <= ctx.bar.timestamp < at < session[1]
         ):
             continue

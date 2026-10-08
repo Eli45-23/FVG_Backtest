@@ -23,6 +23,7 @@ class RunConfig:
     timeframe: str = "5m"
     dataset_profile: str = "legacy_2024_2026"
     execution_mode: str = "legacy_v1"
+    session_policy: str = "XNYS_FULL"
     max_trades_per_day: int | None = 1
     sizing_mode: str = "FIXED_QUANTITY"
     risk_budget: str = "100"
@@ -49,6 +50,10 @@ class RunConfig:
         FrameConfig(**self.frame_config).validate()
         if self.execution_mode not in ("legacy_v1", "extended_v1"):
             raise ValueError("Unknown execution mode")
+        if self.session_policy not in ("XNYS_FULL", "XNYS_ALL"):
+            raise ValueError("Unknown session policy")
+        if self.session_policy == "XNYS_ALL" and self.execution_mode != "extended_v1":
+            raise ValueError("XNYS_ALL requires extended_v1 for actual calendar closes")
         if self.max_trades_per_day is not None and (
             type(self.max_trades_per_day) is not int or self.max_trades_per_day < 1
         ):

@@ -191,7 +191,7 @@ def enqueue(
         "dataset_profile": cfg.dataset_profile,
         "dataset_identity": source_identity(cfg.dataset_profile),
         "session": (
-            f"XNYS full sessions / NY calendar date / flat-only / daily limit {cfg.max_trades_per_day or 'unlimited'}"
+            f"XNYS {'full sessions' if cfg.session_policy == 'XNYS_FULL' else 'all sessions with actual calendar close'} / NY calendar date / flat-only / daily limit {cfg.max_trades_per_day or 'unlimited'}"
             if extended
             else "XNYS full sessions / NY calendar date / one trade per day"
         ),
