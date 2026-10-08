@@ -38,11 +38,12 @@ remain stored on old runs; adding engine code changes the current engine hash no
   approach direction. Rejection interpretation reverses the sign. Unknown approach has null
   directional values. Excursions are nonnegative, anchored at event close.
 - Baseline is every ordinary complete RTH 5m confirmed-close observation (including event
-  observations), matched by year and 30-minute NY confirmation-time bucket. Direction is
+  observations), matched by year, 30-minute NY confirmation-time bucket and causal ATR14 bucket.
+  Fixed point buckets are <10, [10,25), [25,50), >=50, and unavailable. Direction is
   matched at analysis time. Each event receives equal weight across its matched baseline;
   repeated baseline observations are disclosed, not represented as independent sample size.
-  No random seed, ML, volatility optimization or strategy selection. ATR14 is causal context
-  only; volatility matching is deliberately not implemented yet.
+  No random seed, ML, volatility optimization or strategy selection. Bucket boundaries are
+  documented fixed measurement choices, not optimized values.
 
 ## Split policy
 Development [2020-01-01,2024-01-01); validation [2024-01-01,2025-01-01);
@@ -61,3 +62,28 @@ or a security boundary against the computer owner.
 No existing data file is rewritten and no new paid data is requested. Untracked user scripts
 are left alone. Generic Zone is infrastructure only; supply/demand detection awaits a frozen
 mechanical specification. No research result is used to recommend a strategy in this task.
+
+## Public level/zone API
+
+Ordinary strategies can import `LevelEngine`, `SessionConfig` and `Zone` from
+`engine.research.levels`. For a complete confirmed ordinary SDK bar:
+
+```python
+# In Strategy.__init__:
+self.levels = LevelEngine(SessionConfig())  # PM deliberately disabled
+
+# In Strategy.on_bar(ctx, params):
+known_levels = self.levels.on_bar(ctx.bar)
+```
+
+The adapter returns levels known at that bar's close. EventDetector instead checks levels
+available at bar START so source-candle price activity cannot create a retroactive event.
+The regular SDK still supplies legacy data and dates; selecting a research profile does not
+extend trading-strategy availability. To use early-history data in strategy backtests would
+be a separate future engine-profile change. Zone has no automated detector or implicit
+supply/demand interpretation.
+
+Calendar sessions and exchange_calendars version are frozen into each study configuration,
+including a schedule hash. Repeated study outputs use that schedule rather than silently
+adopting a later library calendar update. ATR is the 14-bar mean true range after 14
+consecutive complete 5m bars, reset at gaps; it is descriptive and not an eligibility filter.

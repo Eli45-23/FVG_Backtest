@@ -165,6 +165,19 @@ def migrate():
                     )
                 )
             s.add(Migration(version=3))
+        if s.get(Migration, 4) is None:
+            s.execute(
+                text(
+                    "CREATE TRIGGER IF NOT EXISTS immutable_event_study_config BEFORE UPDATE OF config, config_hash, created_at ON event_studies BEGIN SELECT RAISE(ABORT, 'Immutable event study'); END"
+                )
+            )
+            for action in ("UPDATE", "DELETE"):
+                s.execute(
+                    text(
+                        f"CREATE TRIGGER IF NOT EXISTS immutable_event_reveal_{action.lower()} BEFORE {action} ON event_study_reveals BEGIN SELECT RAISE(ABORT, 'Immutable reveal record'); END"
+                    )
+                )
+            s.add(Migration(version=4))
 
 
 def encode(row):
@@ -203,3 +216,23 @@ class ExperimentRun(Base):
     )
     segment: Mapped[str]
     created_at: Mapped[str] = mapped_column(default=now)
+
+
+class EventStudy(Base):
+    __tablename__ = "event_studies"
+    id: Mapped[str] = mapped_column(primary_key=True, default=uid)
+    name: Mapped[str]
+    config: Mapped[dict] = mapped_column(JSON)
+    config_hash: Mapped[str]
+    created_at: Mapped[str] = mapped_column(default=now)
+    status: Mapped[str] = mapped_column(default="queued")
+    error: Mapped[str | None] = mapped_column(nullable=True)
+
+
+class EventReveal(Base):
+    __tablename__ = "event_study_reveals"
+    study_id: Mapped[str] = mapped_column(
+        ForeignKey("event_studies.id"), primary_key=True
+    )
+    revealed_at: Mapped[str] = mapped_column(default=now)
+    config_hash: Mapped[str]

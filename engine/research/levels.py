@@ -123,6 +123,22 @@ class LevelEngine:
         self.opening_range = None
         self.premarket_range = None
 
+    def on_bar(self, confirmed_bar):
+        """SDK adapter: ordinary strategy ctx.bar is already a complete confirmed Bar."""
+        from types import SimpleNamespace
+
+        self.update(
+            SimpleNamespace(
+                timestamp_utc=confirmed_bar.timestamp,
+                open=confirmed_bar.open,
+                high=confirmed_bar.high,
+                low=confirmed_bar.low,
+                close=confirmed_bar.close,
+                is_complete_5m=True,
+            )
+        )
+        return self.active(confirmed_bar.timestamp + FIVE)
+
     def _add(self, kind, price, source, available):
         cfg = tuple(sorted(asdict(self.config).items()))
         self.levels.append(

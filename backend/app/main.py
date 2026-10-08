@@ -29,7 +29,11 @@ from engine.canonical import clean
 async def lifespan(app):
     services.seed()
     services.seed_managed()
+    from backend.app.event_studies import recover_interrupted, cancel_active
+
+    recover_interrupted()
     yield
+    cancel_active()
     with db.Session() as s:
         unfinished = [
             r.id
@@ -700,3 +704,7 @@ app.include_router(versions_router)
 from backend.app.experiments import router as experiments_router
 
 app.include_router(experiments_router)
+
+from backend.app.event_studies import router as event_studies_router
+
+app.include_router(event_studies_router)

@@ -8,9 +8,17 @@ import pandas as pd
 import pyarrow.parquet as pq
 from engine.canonical import clean, dumps, digest
 from engine.research.profiles import profile, validate_segment
-from engine.research.levels import LevelEngine, SessionConfig, NY, FIVE, valid_bar
+from engine.research.levels import (
+    LevelEngine,
+    SessionConfig,
+    NY,
+    FIVE,
+    valid_bar,
+    schedule,
+)
 from engine.research.events import EventDetector
-from engine.research.outcomes import label, PreparedMinutes
+from engine.research.analysis import volatility_bucket
+from engine.research.outcomes import label, PreparedMinutes, directional
 
 
 def version():
@@ -27,12 +35,21 @@ def snapshot(config):
         config["dataset"], config["segment"], config["start"], config["end"]
     )
     session = SessionConfig(**config.get("session", {}))
+    import exchange_calendars
+
+    calendar = {day: [str(op), str(cl)] for day, (op, cl) in schedule().items()}
     return {
         **config,
+        "calendar": {
+            "name": "XNYS",
+            "package_version": exchange_calendars.__version__,
+            "sessions": calendar,
+            "sha256": digest(calendar),
+        },
         "session": asdict(session),
         "dataset_identity": profile(config["dataset"]).identity(),
         "research_engine_version": version(),
-        "baseline": "all_RTH_confirmed_5m/year/half_hour/v1",
+        "baseline": "all_RTH_confirmed_5m/year/half_hour/fixed_ATR14_bucket/v1",
         "outcome_resolution": "1m_after_confirmed_close",
     }
 
@@ -56,7 +73,13 @@ def read_bars(config, warmup=True):
 
 
 def detect(config):
-    engine = LevelEngine(SessionConfig(**config["session"]))
+    engine = LevelEngine(
+        SessionConfig(**config["session"]),
+        sessions={
+            day: tuple(pd.Timestamp(t) for t in times)
+            for day, times in config["calendar"]["sessions"].items()
+        },
+    )
     detector = EventDetector(engine.config)
     events, baseline = [], []
     for row in read_bars(config).itertuples(index=False):
@@ -65,6 +88,7 @@ def detect(config):
         session = engine.sessions.get(day)
         context = {
             "atr14": engine.atr,
+            "volatility_bucket": volatility_bucket(engine.atr),
             "opening_range_size": engine.opening_range,
             "premarket_range_size": engine.premarket_range,
         }
@@ -87,6 +111,7 @@ def detect(config):
                         "time_bucket": ny.strftime("%H:")
                         + ("00" if ny.minute < 30 else "30"),
                         "direction": "UNKNOWN",
+                        "volatility_bucket": volatility_bucket(engine.atr),
                     }
                 )
             )
@@ -153,7 +178,17 @@ def run_labels(config, root):
         # Directional views are derived at query time; shared cache has no strategy direction.
         return cache[key]
 
-    event_labels = {e["event_id"]: outcomes(e) for e in events}
+    event_labels = {
+        e["event_id"]: {
+            horizon: {
+                **outcome,
+                "mfe": directional(outcome, e["direction"])[0],
+                "mae": directional(outcome, e["direction"])[1],
+            }
+            for horizon, outcome in outcomes(e).items()
+        }
+        for e in events
+    }
     baseline_labels = {e["event_id"]: outcomes(e) for e in baseline}
     write_json(root / "outcomes.json", event_labels)
     write_json(root / "baseline_outcomes.json", baseline_labels)

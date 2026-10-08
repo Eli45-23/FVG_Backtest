@@ -13,9 +13,13 @@ class EventDetector:
         self.state = {}
         self.previous = None
         self.day = None
+        self.last_timestamp = None
 
     def update(self, row, levels, session, context=None):
         at = pd.Timestamp(row.timestamp_utc)
+        if self.last_timestamp is not None and at <= self.last_timestamp:
+            raise ValueError("Events require strictly chronological candles")
+        self.last_timestamp = at
         day = str(at.tz_convert(NY).date())
         if day != self.day:
             self.state = {}

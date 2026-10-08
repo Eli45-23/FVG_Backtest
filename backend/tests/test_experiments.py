@@ -280,7 +280,7 @@ def test_migrate_real_v1_database_preserves_rows(tmp_path):
     assert rows() == before
     with sqlite3.connect(store / "app.db") as c:
         assert (
-            c.execute("select max(version) from schema_migrations").fetchone()[0] == 3
+            c.execute("select max(version) from schema_migrations").fetchone()[0] == 4
         )
         for (path,) in c.execute("select path from run_artifacts where kind='result'"):
             assert json.loads(Path(path).read_text())["summary"]["overall"][

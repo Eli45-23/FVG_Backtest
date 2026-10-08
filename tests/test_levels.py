@@ -327,3 +327,35 @@ def test_baseline_matching_not_global():
     result = describe([e], {"e": lab}, [b, x], {"b": lab, "x": lab})
     assert result["unique_matched_baseline_observations"] == 1
     assert all(p["difference"] == 0 for p in result["probabilities"])
+
+
+def test_public_strategy_bar_adapter():
+    from engine.strategy import Bar
+
+    r = bar("2024-01-02 09:30")
+    e = LevelEngine(sessions={"2024-01-02": session("2024-01-02")})
+    levels = e.on_bar(Bar(r.timestamp_utc, r.open, r.high, r.low, r.close))
+    assert {l.level_type for l in levels} == {"O5H", "O5L"}
+
+
+def test_volatility_matching_and_boundaries():
+    from engine.research.analysis import volatility_bucket, match_key
+
+    assert [volatility_bucket(v) for v in [None, 9.75, 10, 25, 50]] == [
+        "unavailable",
+        "<10",
+        "10-25",
+        "25-50",
+        "50+",
+    ]
+    assert match_key(
+        {"year": 2024, "time_bucket": "10:00", "volatility_bucket": "<10"}
+    ) != match_key({"year": 2024, "time_bucket": "10:00", "volatility_bucket": "50+"})
+
+
+def test_detector_does_not_accept_duplicate_after_incomplete():
+    d = EventDetector(SessionConfig())
+    r = bar("2024-01-02 09:30", complete=False)
+    d.update(r, [level()], session("2024-01-02"))
+    with pytest.raises(ValueError):
+        d.update(r, [level()], session("2024-01-02"))
