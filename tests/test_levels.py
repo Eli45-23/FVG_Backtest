@@ -359,3 +359,37 @@ def test_detector_does_not_accept_duplicate_after_incomplete():
     d.update(r, [level()], session("2024-01-02"))
     with pytest.raises(ValueError):
         d.update(r, [level()], session("2024-01-02"))
+
+
+def test_strategy_provider_consumes_omitted_prior_close_and_premarket():
+    from engine.research.provider import CausalLevelSource
+
+    sessions = {day: session(day) for day in ["2024-01-02", "2024-01-03"]}
+    rows = [
+        bar(t, h=110, l=90)
+        for t in pd.date_range(*sessions["2024-01-02"], freq="5min", inclusive="left")
+    ]
+    rows += [bar(f"2024-01-03 09:{i*5:02}", h=108, l=92) for i in range(7)]
+    rows += [bar("2024-01-03 09:35", h=9999, l=1)]
+    source = CausalLevelSource(rows, SessionConfig("09:00", "09:30"), sessions)
+    # No callback was needed for the previous session's 15:55 source candle.
+    first = source.at(pd.Timestamp("2024-01-03 09:34", tz=NY))
+    assert {l.level_type for l in first} == {"PDH", "PDL", "PMH", "PML"}
+    current = {
+        l.level_type: l.price
+        for l in source.at(pd.Timestamp("2024-01-03 09:35", tz=NY))
+    }
+    assert current["PDH"] == 110 and current["PMH"] == 108 and current["O5H"] == 108
+    assert all(price != 9999 for price in current.values())
+
+
+def test_provider_rejects_reverse_time_and_expires_old_date():
+    from engine.research.provider import CausalLevelSource
+
+    source = CausalLevelSource(
+        [bar("2024-01-02 09:30")], sessions={"2024-01-02": session("2024-01-02")}
+    )
+    assert source.at(pd.Timestamp("2024-01-02 09:35", tz=NY))
+    assert not source.at(pd.Timestamp("2024-01-03 08:00", tz=NY))
+    with pytest.raises(ValueError):
+        source.at(pd.Timestamp("2024-01-02 09:35", tz=NY))

@@ -87,3 +87,101 @@ Calendar sessions and exchange_calendars version are frozen into each study conf
 including a schedule hash. Repeated study outputs use that schedule rather than silently
 adopting a later library calendar update. ATR is the 14-bar mean true range after 14
 consecutive complete 5m bars, reset at gaps; it is descriptive and not an eligibility filter.
+
+### Provider for the existing strategy callback schedule
+
+The legacy executor intentionally calls strategies only within its established session
+window; it omits premarket and the candle closing at 16:00. That behavior is preserved.
+Use the provider below rather than feeding only `ctx.bar` if PDH/PDL or PM levels are needed:
+
+```python
+from engine.research.provider import CausalLevelSource
+from engine.research.levels import SessionConfig
+
+# Strategy.__init__ (legacy input profile is the default):
+self.level_source = CausalLevelSource.from_profile(config=SessionConfig())
+
+# Strategy.on_bar:
+levels = self.level_source.at(ctx.timestamp)
+```
+
+The provider advances its private source iterator only through candles whose close is at or
+before the requested timestamp. It includes bars omitted by strategy callbacks. Its public
+API exposes immutable currently available levels, not future source bars. Calls must use
+nondecreasing aware timestamps. `identity` exposes the selected profile hashes for audit.
+As everywhere else, arbitrary trusted Python can inspect private objects or read files;
+this protects the intended API against accidental lookahead, not malicious source code.
+
+## Persistence, API and operation
+
+Migration **4** adds only `event_studies` and `event_study_reveals`, plus triggers protecting
+study config/hash and immutable reveal records. Existing tables and artifacts are retained.
+The online pre-migration backup is local `work/levels-before.db`. The prior migration test
+now expects schema 4; its exact old-row preservation assertions remain intact.
+
+Immutable config includes profile/file hashes, source row counts, study code fingerprint,
+explicit session/rejection settings, segment/date range, outcome resolution, baseline
+matching method and frozen exchange calendar. Artifacts live under ignored
+`storage/event_studies/<id>/`: config, detections, ordinary observations, outcomes and
+baseline outcomes. Files are created exclusively, never overwritten through the app.
+CSV is a deterministic export with per-event outcomes JSON; full JSON includes config,
+all events/labels and matched-baseline source observations/labels.
+
+Study jobs run sequentially in a separate subprocess queue, with cancellation and a one-hour
+limit. Errors do not crash FastAPI. Restart marks interrupted jobs failed; create a new study
+to retry. An audited reveal cannot be undone; a failed reveal remains recorded. No pending
+OOS labels are computed before reveal. Raw files remain accessible to the trusted local user.
+
+Endpoints under `/api/level-research`:
+- `GET /profiles`: profile range, row counts and SHA-256 identities.
+- `GET/POST /studies`: list/create immutable studies.
+- `GET /studies/{id}`: status, config, reveal timestamp and outcome availability.
+- `POST /studies/{id}/cancel`: cancel queued/running work.
+- `POST /studies/{id}/reveal`: explicit irreversible OOS reveal and label computation.
+- `GET /studies/{id}/events`: paginated detection metadata with seven UI filters.
+- `GET /studies/{id}/summary`: horizon/directional view, probabilities, matched baseline,
+  excursion distributions and grouped results. Sealed OOS returns 409.
+- `GET /studies/{id}/export?format=json|csv`: immutable result export; sealed OOS returns 409.
+- `GET /studies/{id}/events/{event_id}/chart`: source candles/level/event annotations.
+  Sealed charts end at confirmation. Lines begin no earlier than level availability.
+  Changed source hashes prevent reconstruction from mismatched data.
+
+Dates are NY calendar dates, with exclusive ends. The UI names segments explicitly, allows
+level/class/approach direction/touch count (including 3+)/time/year/weekday filtering, and
+provides continuation vs rejection MFE/MAE. Probabilities use fractions from 0 to 1. Baseline
+comparisons use only the selected study's observations; event filters select events, while
+baseline matching retains ordinary observations from the same frozen study range.
+
+## Limits, not hidden assumptions
+
+This foundation measures RTH interactions (including actual XNYS half-days), not overnight
+interactions. PM extremes may derive from the explicitly configured premarket window, but
+interaction detection begins at RTH. Sessions with incomplete source coverage do not acquire
+complete-session levels. The dataset's earliest day may lack a prior-session level because
+no pre-2020 source is present. Touch/reclaim/rejection classes intentionally overlap.
+
+No inference of intraminute ordering, transaction-cost simulation, trade sizing, strategy
+optimization, significance testing or machine learning occurs. A rejection is the documented
+mechanical proxy, not a claim of profitable confirmation. Supply/demand detection is pending.
+
+Events are paginated in the UI, but stored JSON and aggregate queries are loaded in memory.
+Long multi-year studies may use substantial memory and artifacts; all-years throughput has
+not been benchmarked. The one-hour worker cap fails explicitly, without silently sampling.
+Use date-bounded studies for review. A future columnar/query store can improve scale without
+changing the frozen event definitions. No change is required to the existing execution engine.
+
+## Verification commands
+
+```sh
+work/.venv/bin/python -m unittest discover -s outputs/tests
+work/.venv/bin/python -m pytest tests backend/tests -q
+npm --prefix frontend test
+npm --prefix frontend run build
+# Browser tests should use fresh, separate LAB_STORAGE; never reset user storage.
+LAB_STORAGE="$PWD/work/browser-storage" ./run_app.sh
+npm --prefix frontend run e2e -- --workers=1
+```
+
+Alternate test ports are supported by `LAB_TEST_API_PORT` in Vite and `LAB_TEST_URL` in
+Playwright. Defaults remain localhost 8000/5173. A reused browser-test workspace can contain
+duplicate named fixtures; use a new test directory instead of deleting user research.

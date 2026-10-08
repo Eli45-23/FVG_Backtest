@@ -47,3 +47,16 @@ See DEVELOPMENT.md for documented limits and the next extension phase.
 
 Read docs/TRADE_INSPECTOR.md, docs/MANAGEMENT_API.md and docs/RESEARCH_SPLITS.md before
 interpreting managed or segmented results. No claim of R-Step outperformance is made.
+
+## Level Research Foundation
+
+**Event Studies** is separate from trading backtests. Select the additive 2020–2026 research
+profile, a Development/Validation/OOS segment, and explicit session settings. PDH/PDL and
+O5H/O5L are available immediately; PMH/PML require an explicitly chosen premarket window.
+Study every level interaction, inspect confirmed event candles, compare forward outcomes
+with matched ordinary observations, and export immutable results. OOS labels are not
+computed or exposed until an explicit audited reveal. Legacy backtest dates and files are
+unchanged. No strategy or parameter optimization is performed by this feature.
+
+Read [Level Research Foundation](docs/LEVEL_RESEARCH_FOUNDATION.md) for exact mechanical
+definitions, causal API examples, endpoints, limitations and measurement conventions.
