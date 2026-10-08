@@ -1,4 +1,4 @@
-# Strategy Research Lab
+# Strategy Research Lab v1.1
 
 Local Python strategy editor and research platform over the validated MNQ execution engine.
 
@@ -36,3 +36,14 @@ Only run strategy code you trust. Python is isolated in workers, **not securely 
 Market data, .env, SQLite, logs and generated run artifacts stay ignored. Version 1 supports
 MNQ/5m, full XNYS sessions, fixed bracket/session-close execution and one trade per NY date.
 See DEVELOPMENT.md for documented limits and the next extension phase.
+
+
+## v1.1
+- Click any trade for the candlestick Inspector, levels, FVG and managed-stop history.
+- Strategies → Versions offers read-only Monaco Diff, historical clone and append-only restore.
+- CONT-A Quality R-Step demonstrates opt-in causal management without changing fixed references.
+- Experiments provides saved research splits, Development/Validation, freeze and explicit OOS reveal.
+- Sweeps default to Development; Validation requires an advanced override; official OOS is blocked.
+
+Read docs/TRADE_INSPECTOR.md, docs/MANAGEMENT_API.md and docs/RESEARCH_SPLITS.md before
+interpreting managed or segmented results. No claim of R-Step outperformance is made.

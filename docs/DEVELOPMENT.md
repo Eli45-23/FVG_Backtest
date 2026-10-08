@@ -98,12 +98,24 @@ Do not mutate CONT-A fixtures to hide regressions. Preserve old runners for inde
 - Monaco first load: assets are local; the production bundle is large (~1 MB gzipped main
   chunk). No CDN is needed; later code splitting is a performance improvement, not a fill change.
 
-## Remaining scope
-Phase-2 financial candlestick overlays are prepared through
-GET /api/backtests/{id}/candles/{trade_id} (bars, trade levels and FVG metadata).
-The frontend currently provides equity/statistical charts, not candle/FVG annotations.
-Management hooks are intentionally reserved/rejected. Multi-parameter sweeps, walk-forward
-execution, enforced data splits, multi-instrument profiles, filesystem strategy import/export,
-and shared-user authentication are not implemented. Research UI previews 100 rows; the API
-supports pagination. Strategy-version history is available through the API; the editor opens
-the current version and its variants. All source snapshots remain immutable and recoverable.
+## v1.1 extension and migration
+Migration 3 is additive: research_splits, experiment_snapshots and experiment_runs,
+plus SQL triggers protecting immutable source/config/relationships. Existing v1 database
+rows and artifact paths remain unchanged. Before local migration, an online SQLite backup
+was saved to work/v11-before.db; tests migrated a copy and compared every preexisting row.
+Do not reset storage to apply migration; normal startup calls the idempotent migration.
+
+New modules: backend/app/charts.py, versions.py, experiments.py; engine/managed.py;
+frontend TradeInspector, VersionBrowser, Experiments; built-in cont_a_rstep.py.
+See TRADE_INSPECTOR.md, MANAGEMENT_API.md and RESEARCH_SPLITS.md. The former v1 limitations
+about management/source browser/research labels are superseded by these v1.1 documents.
+
+The frontend now uses Lightweight Charts 5.2.0 with attribution. Vitest was updated to
+5.0.3 to resolve dependency audit findings; use Node 22+ (tested on 24.3). Tests include
+all *e2e.spec.ts files; run browser workflows sequentially with npm run e2e -- --workers=1
+against isolated LAB_STORAGE. Normal app storage is never reset by tests.
+
+Remaining: full URL routing for inspector (currently large panel), export/import of whole
+research workspaces, more instruments/timeframes, alternative management event policies,
+partial exits, and independently versioned engine-environment restoration. No management
+threshold optimization or multi-parameter grid was performed.

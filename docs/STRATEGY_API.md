@@ -95,13 +95,23 @@ oldest FVG formation and stable feature ID. Rejections do not consume the lock. 
 can use any eligible intraday trigger before the 16:00 close; CONT-A's 11:00 cutoff is in
 its source, not hard-coded into the generic engine. No overnight positions are supported.
 
-## Management contract (reserved)
+## Position management (v1.1)
 
-`StopUpdate(price, effective_after)` describes a future request, but v1 rejects
-`on_position` hooks explicitly. It never silently applies a requested stop retrospectively.
-Before enabling management, specify confirmed-event timing, activation boundaries, gap and
-same-minute priority, then add independent execution/golden tests. Do not edit the reference
-executor casually. Partial exits, trailing and multiple trades/day are not v1 features.
+Implement `manage(ctx, params)` and return `MoveStop(price, reason, trigger_type,
+trigger_value, metadata)` or a list, or None. The engine alone controls activation;
+requests observed from a minute activate at the next minute start. Frozen context
+provides original risk, current stop, confirmed OHLC, excursions and applied history.
+See [MANAGEMENT_API.md](MANAGEMENT_API.md) for complete event ordering and examples.
+The old reserved StopUpdate type is not an executable request; use MoveStop.
+No callback (or management_enabled=False) preserves the exact fixed-bracket path.
+
+## Immutable source history (v1.1)
+
+Strategies → Versions lists hashes, creation dates and associated run/variant counts.
+Select either side of Monaco Diff for read-only comparison. Clone this version creates a
+new strategy. Restore as NEW version always appends, even when restoring current source.
+Runs/Variants tabs display relationships for the selected source version; each run links
+back to the exact source it used. No endpoint edits old source.
 
 ## Built-in presets
 

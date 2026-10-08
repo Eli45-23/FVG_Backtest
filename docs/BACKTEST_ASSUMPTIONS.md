@@ -33,8 +33,9 @@ FVG_LAYER, LIFECYCLE_LAYER and CONT-A reports for the full historical record.
   Empty runs are valid and report zero trades with null averages/rates, not fabricated trades.
 - R normalizes net outcome by each original risk. Positive mean R and negative dollars can
   coexist when larger-risk losses dominate. Different date/data/engine configs are flagged.
-- Segment labels (development/validation/out-of-sample) are saved labels. They do not
-  enforce untouched test sets or prevent repeated inspection. No automatic winner selection.
+- Legacy v1 segment labels remain historical labels. New v1.1 official OOS uses immutable
+  frozen experiments and explicit reveal; see RESEARCH_SPLITS.md. This is a workflow
+  safeguard, not protection against deliberately reading local files. No automatic winner selection.
 
 ## Compatibility detail
 Golden tests compare exact trade identities, entry/exit timestamps and prices, stops,

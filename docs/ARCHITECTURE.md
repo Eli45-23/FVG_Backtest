@@ -92,3 +92,17 @@ Verification: 156 existing tests, 44 new Python tests, 5 frontend component test
 and 2 browser end-to-end workflows pass. Three exact full-data golden trade hashes
 and all reference overall metrics match; nonempty repeated runs are deterministic
 and protected source/result Parquet hashes remain unchanged.
+
+
+## v1.1 architecture
+Trade visualization is a read-only chart service and a generic annotation renderer, separate
+from execution. Immutable version APIs feed Monaco Diff and run relationships. Management
+is an opt-in executor; the legacy unmanaged call is unchanged. Frozen per-event context,
+next-minute activation and strict stop monotonicity are tested synthetically and against
+full fixed-bracket goldens. Applied management events are immutable run artifacts.
+
+Research splits and experiment snapshots use additive migration 3. Snapshot config is captured
+before Development, frozen after Development/Validation, and explicitly revealed for OOS.
+The service enforces identity and sweep boundaries. The public context cannot read experiment
+hindsight or future bars. Old runs/configs are not rewritten. See V1_1_PLAN.md for the baseline
+audit and the new feature-specific documents for semantics and limits.
