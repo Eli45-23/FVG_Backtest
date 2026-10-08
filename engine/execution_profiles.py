@@ -35,7 +35,22 @@ def load_data(config, feature="bars"):
         ],
     ).to_pandas()
     raw = pq.read_table(
-        p.minutes, filters=[("ts_event", ">=", start), ("ts_event", "<", end)]
+        p.minutes,
+        filters=[
+            (
+                "ts_event",
+                ">=",
+                (
+                    start - pd.Timedelta(days=30)
+                    if config.execution_mode == "extended_v1"
+                    or config.timeframe != "5m"
+                    or config.max_trades_per_day != 1
+                    or config.sizing_mode != "FIXED_QUANTITY"
+                    else start
+                ),
+            ),
+            ("ts_event", "<", end),
+        ],
     ).to_pandas()
     result = {"bars": bars, "minutes": raw}
     if feature == "fvg_second":

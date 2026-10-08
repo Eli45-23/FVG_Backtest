@@ -8,6 +8,7 @@ from sqlalchemy import select
 from backend.app import db, services
 from engine.runner import RunConfig
 from engine.data import identities
+from engine.execution_profiles import data_hashes, source_identity
 from engine.canonical import digest
 from engine.legacy import metrics
 
@@ -29,16 +30,19 @@ class SplitBody(Body):
     name: str = Field(min_length=1, max_length=160)
     description: str = ""
     ranges: dict[str, Range]
+    dataset_profile: str = "legacy_2024_2026"
 
 
-def validate_ranges(ranges):
+def validate_ranges(ranges, dataset_profile="legacy_2024_2026"):
     if set(ranges) != set(SEGMENTS):
         raise ValueError("Provide Development, Validation and Out-of-Sample ranges")
     warnings = []
     previous = None
     for segment in SEGMENTS:
         r = ranges[segment]
-        RunConfig(start=r["start"], end=r["end"]).validate()
+        RunConfig(
+            start=r["start"], end=r["end"], dataset_profile=dataset_profile
+        ).validate()
         if previous:
             if r["start"] < previous:
                 raise ValueError("Research ranges overlap or are out of order")
@@ -53,7 +57,7 @@ def validate_ranges(ranges):
 @router.post("/research-splits")
 def create_split(body: SplitBody):
     ranges = {k: v.model_dump() for k, v in body.ranges.items()}
-    warnings = validate_ranges(ranges)
+    warnings = validate_ranges(ranges, body.dataset_profile)
     with db.Session.begin() as s:
         row = db.ResearchSplit(
             name=body.name,
@@ -63,14 +67,24 @@ def create_split(body: SplitBody):
         )
         s.add(row)
         s.flush()
-        return db.encode(row)
+        s.add(
+            db.ResearchSplitProfile(
+                split_id=row.id, dataset_profile=body.dataset_profile
+            )
+        )
+        return {**db.encode(row), "dataset_profile": body.dataset_profile}
+
+
+def split_profile(s, id):
+    p = s.get(db.ResearchSplitProfile, id)
+    return p.dataset_profile if p else "legacy_2024_2026"
 
 
 @router.get("/research-splits")
 def splits():
     with db.Session() as s:
         return [
-            db.encode(r)
+            {**db.encode(r), "dataset_profile": split_profile(s, r.id)}
             for r in s.scalars(
                 select(db.ResearchSplit).order_by(db.ResearchSplit.created_at.desc())
             )
@@ -103,7 +117,10 @@ def create_experiment(body: ExperimentBody):
             and require(s, db.Variant, body.variant_id).strategy_version_id != v.id
         ):
             raise ValueError("Variant version mismatch")
-        settings = RunConfig(**body.settings)
+        chosen_profile = split_profile(s, split.id)
+        settings = RunConfig(**{"dataset_profile": chosen_profile, **body.settings})
+        if settings.dataset_profile != chosen_profile:
+            raise ValueError("Experiment dataset must match immutable research split")
         settings.validate()
         check = services.validate(v.source, body.parameters)
         if not check["valid"]:
@@ -123,7 +140,9 @@ def create_experiment(body: ExperimentBody):
             "ranges": split.ranges,
             "research_split_id": split.id,
             "engine_version": services.engine_version(),
-            "data_hashes": identities(),
+            "data_hashes": data_hashes(settings.dataset_profile),
+            "dataset_profile": settings.dataset_profile,
+            "dataset_identity": source_identity(settings.dataset_profile),
             "management": check.get("management", {}),
             "session": "XNYS full sessions / one entry per NY date",
             "execution": "stop-first, minute-close observation, next-minute activation, fixed target",
@@ -143,7 +162,9 @@ def create_experiment(body: ExperimentBody):
 def identity_check(config):
     if config["engine_version"] != services.engine_version():
         raise ValueError("Experiment engine changed; create a new snapshot")
-    if config["data_hashes"] != identities():
+    if config["data_hashes"] != data_hashes(
+        config.get("dataset_profile", "legacy_2024_2026")
+    ):
         raise ValueError("Experiment data changed; create a new snapshot")
 
 

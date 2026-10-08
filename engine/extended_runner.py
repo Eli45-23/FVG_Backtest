@@ -196,6 +196,9 @@ def run(source, params, config, data=None, progress=lambda stage: None):
             {"signal_id": s["signal_id"], "timestamp": at, "reason": "SELECTED"}
         )
     summary = metrics.summary(trades, eligible)
+    from engine.reporting import extend
+
+    extend(summary, trades, eligible, management, metrics)
     _, curve = metrics.drawdown(trades)
     return dict(
         trades=trades,

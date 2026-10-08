@@ -185,3 +185,18 @@ npm --prefix frontend run e2e -- --workers=1
 Alternate test ports are supported by `LAB_TEST_API_PORT` in Vite and `LAB_TEST_URL` in
 Playwright. Defaults remain localhost 8000/5173. A reused browser-test workspace can contain
 duplicate named fixtures; use a new test directory instead of deleting user research.
+
+
+## Additive research/execution upgrade
+
+New ordinary backtests may explicitly select `research_2020_2026`; absent profile fields
+retain legacy behavior. See [Execution extensions](EXECUTION_EXTENSIONS.md) for confirmed
+multi-timeframe context, flat-only sequential trades, partial legs and risk sizing.
+See [Research v2](RESEARCH_V2.md) for mechanical sequences, structure, zones, indicators,
+columnar artifacts, numeric filters, date-cluster inference and limitations.
+
+Migration 5 adds only `research_split_profiles` and immutability triggers. Existing table
+rows and artifact paths are not rewritten; splits without an association imply legacy.
+Back up SQLite before first upgraded launch. Normal startup retains existing data and never
+redownloads paid market data. To reproduce an old sealed study's forward labels, retain its
+original frozen engine checkout; this upgrade does not bypass its identity checks.

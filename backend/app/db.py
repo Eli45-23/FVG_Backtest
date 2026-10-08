@@ -178,6 +178,14 @@ def migrate():
                     )
                 )
             s.add(Migration(version=4))
+        if s.get(Migration, 5) is None:
+            for action in ("UPDATE", "DELETE"):
+                s.execute(
+                    text(
+                        f"CREATE TRIGGER IF NOT EXISTS immutable_split_profile_{action.lower()} BEFORE {action} ON research_split_profiles BEGIN SELECT RAISE(ABORT, 'Immutable split dataset profile'); END"
+                    )
+                )
+            s.add(Migration(version=5))
 
 
 def encode(row):
@@ -236,3 +244,13 @@ class EventReveal(Base):
     )
     revealed_at: Mapped[str] = mapped_column(default=now)
     config_hash: Mapped[str]
+
+
+class ResearchSplitProfile(Base):
+    """Additive association: old split rows are unchanged and imply legacy."""
+
+    __tablename__ = "research_split_profiles"
+    split_id: Mapped[str] = mapped_column(
+        ForeignKey("research_splits.id"), primary_key=True
+    )
+    dataset_profile: Mapped[str]

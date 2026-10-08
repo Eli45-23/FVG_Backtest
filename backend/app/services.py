@@ -174,6 +174,12 @@ def enqueue(
     if not check["valid"]:
         raise ValueError(check.get("error", "Invalid strategy"))
     hashes = data_hashes(cfg.dataset_profile)
+    extended = (
+        cfg.execution_mode == "extended_v1"
+        or cfg.max_trades_per_day != 1
+        or cfg.timeframe != "5m"
+        or cfg.sizing_mode != "FIXED_QUANTITY"
+    )
     snapshot = {
         "strategy_id": strategy_id,
         "strategy_version": number,
@@ -184,8 +190,16 @@ def enqueue(
         "data_hashes": hashes,
         "dataset_profile": cfg.dataset_profile,
         "dataset_identity": source_identity(cfg.dataset_profile),
-        "session": "XNYS full sessions / NY calendar date / one trade per day",
-        "execution": "minute-start ownership; stop first; fixed bracket; session close; exit-minute extrema",
+        "session": (
+            f"XNYS full sessions / NY calendar date / flat-only / daily limit {cfg.max_trades_per_day or 'unlimited'}"
+            if extended
+            else "XNYS full sessions / NY calendar date / one trade per day"
+        ),
+        "execution": (
+            "extended_v1; minute-start ownership; stop first; opt-in target legs and next-minute management; session close; exit-minute extrema"
+            if extended
+            else "minute-start ownership; stop first; fixed bracket; session close; exit-minute extrema"
+        ),
         "segment": segment,
         "research_split_id": None,
         "management": check.get("management", {"enabled": False}),
@@ -266,10 +280,15 @@ def execute(rid):
                     if s.get(db.Run, rid).status == "cancelled":
                         terminate(p)
             try:
-                p.wait(timeout=600)
+                timeout = (
+                    3600
+                    if snapshot["settings"].get("execution_mode") == "extended_v1"
+                    else 600
+                )
+                p.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
                 terminate(p)
-                raise ValueError("Backtest exceeded 600-second timeout")
+                raise ValueError(f"Backtest exceeded {timeout}-second timeout")
         with lock, db.Session.begin() as s:
             r = s.get(db.Run, rid)
             if r.status == "cancelled":

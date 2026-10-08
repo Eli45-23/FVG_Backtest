@@ -22,7 +22,7 @@ def frozen(value):
 
 
 class FeatureHub:
-    def __init__(self, frames, session=SessionConfig(), settings=None):
+    def __init__(self, frames, session=SessionConfig(), settings=None, sessions=None):
         settings = settings or {}
 
         def confirmed_rows(tf, frame):
@@ -51,8 +51,9 @@ class FeatureHub:
                 ZoneConfig(**settings.get("zones", {})), tf
             )
             for tf in frames
+            if tf == "4h"
         }
-        self.levels = LevelEngine(session)
+        self.levels = LevelEngine(session, sessions=sessions)
         self.prior_close = {}
         self.rth_open = {}
         self.last_rth_close = None
@@ -73,8 +74,9 @@ class FeatureHub:
             if not valid_bar(r):
                 self.indicators[tf].update(r, r.timestamp_utc, False, False)
                 self.structures[tf].window.clear()
-                self.zones[tf].base.clear()
-                self.zones[tf].candidates.clear()
+                if tf in self.zones:
+                    self.zones[tf].base.clear()
+                    self.zones[tf].candidates.clear()
                 continue
             b = Bar(r.timestamp_utc, r.open, r.high, r.low, r.close, int(r.volume))
             self.latest[tf] = b
@@ -89,8 +91,40 @@ class FeatureHub:
             events = self.structures[tf].update(
                 b, confirmed, values.get("atr14"), continuous
             )
-            created = self.zones[tf].update(
-                b, confirmed, values.get("atr14"), self.structures[tf], continuous
+            created = (
+                self.zones[tf].update(
+                    b, confirmed, values.get("atr14"), self.structures[tf], continuous
+                )
+                if tf in self.zones
+                else []
+            )
+            structure = self.structures[tf]
+            swings = []
+            for swing in (structure.high, structure.low):
+                if swing is not None:
+                    touching = float(b.low) <= swing["price"] <= float(b.high)
+                    if touching and not swing.get("_touching", False):
+                        swing["touch_count"] = swing.get("touch_count", 0) + 1
+                    swing["_touching"] = touching
+                    atr = values.get("atr14")
+                    swings.append(
+                        {
+                            **swing,
+                            "active": True,
+                            "broken": swing["id"] in structure.broken,
+                            "distance_points": swing["price"] - float(b.close),
+                            "distance_atr": (
+                                (swing["price"] - float(b.close)) / atr if atr else None
+                            ),
+                        }
+                    )
+            values["confirmed_swings"] = swings
+            nearest = (
+                min(swings, key=lambda x: abs(x["distance_points"])) if swings else None
+            )
+            values["swing_displacement"] = nearest["displacement"] if nearest else None
+            values["swing_displacement_atr"] = (
+                nearest["displacement_atr"] if nearest else None
             )
             values["structure_state"] = self.structures[tf].state
             values["structure_events"] = events
@@ -161,7 +195,7 @@ class FeatureHub:
                             (),
                         )
                     )
-        for z in self.zones.get("4h", self.zones.get("5m")).zones:
+        for z in self.zones["4h"].zones if "4h" in self.zones else ():
             if z["status"] == "active" and z["availability_timestamp"] <= at:
                 price = z["top"] if z["zone_type"] == "DEMAND" else z["bottom"]
                 out.append(

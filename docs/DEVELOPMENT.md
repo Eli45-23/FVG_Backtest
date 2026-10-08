@@ -119,3 +119,18 @@ Remaining: full URL routing for inspector (currently large panel), export/import
 research workspaces, more instruments/timeframes, alternative management event policies,
 partial exits, and independently versioned engine-environment restoration. No management
 threshold optimization or multi-parameter grid was performed.
+
+
+## Additive research/execution upgrade
+
+New ordinary backtests may explicitly select `research_2020_2026`; absent profile fields
+retain legacy behavior. See [Execution extensions](EXECUTION_EXTENSIONS.md) for confirmed
+multi-timeframe context, flat-only sequential trades, partial legs and risk sizing.
+See [Research v2](RESEARCH_V2.md) for mechanical sequences, structure, zones, indicators,
+columnar artifacts, numeric filters, date-cluster inference and limitations.
+
+Migration 5 adds only `research_split_profiles` and immutability triggers. Existing table
+rows and artifact paths are not rewritten; splits without an association imply legacy.
+Back up SQLite before first upgraded launch. Normal startup retains existing data and never
+redownloads paid market data. To reproduce an old sealed study's forward labels, retain its
+original frozen engine checkout; this upgrade does not bypass its identity checks.

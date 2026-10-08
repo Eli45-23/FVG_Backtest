@@ -76,7 +76,23 @@ def test_development_determinism(client, development):
         ).read_bytes()
 
 
-def test_oos_hidden_until_explicit_reveal(client):
+def test_oos_hidden_until_explicit_reveal(client, monkeypatch):
+    # Exercise the reveal state machine without computing live OOS performance.
+    # Actual forward labeling is covered by Development and synthetic tests.
+    original_execute = api.execute
+
+    def isolated_execute(id, mode):
+        if mode != "label":
+            return original_execute(id, mode)
+        events = json.loads((api.root(id) / "events.json").read_text())
+        (api.root(id) / "outcomes.json").write_text(
+            json.dumps({e["event_id"]: {} for e in events})
+        )
+        (api.root(id) / "baseline_outcomes.json").write_text("{}")
+        with db.Session.begin() as s:
+            s.get(db.EventStudy, id).status = "completed"
+
+    monkeypatch.setattr(api, "execute", isolated_execute)
     row = create(client, segment="out-of-sample", start="2025-01-06", end="2025-01-07")
     assert row["status"] == "sealed" and not row["outcomes_available"]
     prefix = "/api/level-research/studies/" + row["id"]
@@ -164,7 +180,7 @@ def test_migration_preserves_v11_copy(tmp_path):
             if t != "schema_migrations":
                 assert c.execute(f"select * from {t}").fetchall() == rows
         assert (
-            c.execute("select max(version) from schema_migrations").fetchone()[0] == 4
+            c.execute("select max(version) from schema_migrations").fetchone()[0] == 5
         )
         c.close()
     finally:

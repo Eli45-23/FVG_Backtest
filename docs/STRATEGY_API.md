@@ -119,3 +119,18 @@ One CONT-A source has three saved input variants: baseline (max_risk=0 means dis
 risk <100, and risk <100 with exclude_middle=True. Source returns the same mirrored
 second-candle predicate and one-tick first-post-bar stop as the legacy runners. Their
 full-data fingerprints are checked against preserved local reference files.
+
+
+## Additive research/execution upgrade
+
+New ordinary backtests may explicitly select `research_2020_2026`; absent profile fields
+retain legacy behavior. See [Execution extensions](EXECUTION_EXTENSIONS.md) for confirmed
+multi-timeframe context, flat-only sequential trades, partial legs and risk sizing.
+See [Research v2](RESEARCH_V2.md) for mechanical sequences, structure, zones, indicators,
+columnar artifacts, numeric filters, date-cluster inference and limitations.
+
+Migration 5 adds only `research_split_profiles` and immutability triggers. Existing table
+rows and artifact paths are not rewritten; splits without an association imply legacy.
+Back up SQLite before first upgraded launch. Normal startup retains existing data and never
+redownloads paid market data. To reproduce an old sealed study's forward labels, retain its
+original frozen engine checkout; this upgrade does not bypass its identity checks.

@@ -211,3 +211,86 @@ def test_timeframe_confirmation(tf, count):
     )
     if count > 1:
         assert not aggregate(raw.iloc[1:], tf).iloc[0].is_complete_5m
+
+
+@pytest.mark.parametrize("day", ["2020-03-09", "2020-11-02"])
+def test_ny_anchor_dst(day):
+    at = pd.Timestamp(day + " 09:30", tz="America/New_York").tz_convert("UTC")
+    raw = pd.DataFrame(
+        dict(
+            ts_event=pd.date_range(at, periods=240, freq="min"),
+            open=100_000_000_000,
+            high=102_000_000_000,
+            low=99_000_000_000,
+            close=101_000_000_000,
+            volume=1,
+        )
+    )
+    r = aggregate(raw, "4h", FrameConfig("09:30", "America/New_York", "rth")).iloc[0]
+    assert r.is_complete_5m and r.timestamp_ny.strftime("%H:%M") == "09:30"
+    assert (
+        r.availability_timestamp.tz_convert("America/New_York").strftime("%H:%M")
+        == "13:30"
+    )
+
+
+def test_halfday_4h_is_incomplete():
+    at = pd.Timestamp("2020-11-27 09:30", tz="America/New_York").tz_convert("UTC")
+    raw = pd.DataFrame(
+        dict(
+            ts_event=pd.date_range(at, periods=390, freq="min"),
+            open=100_000_000_000,
+            high=102_000_000_000,
+            low=99_000_000_000,
+            close=101_000_000_000,
+            volume=1,
+        )
+    )
+    result = aggregate(raw, "4h", FrameConfig("09:30", "America/New_York", "rth"))
+    assert (
+        len(result) == 1
+        and result.iloc[0].minute_count == 210
+        and not result.iloc[0].is_complete_5m
+    )
+
+
+@pytest.mark.parametrize(
+    "state,direction,high,low,close,expected",
+    [
+        ("BEARISH", "UP", 110, 99, 106, "BULLISH_CHOCH"),
+        ("BEARISH", "DOWN", 101, 90, 94, "BEARISH_BOS"),
+    ],
+)
+def test_opposite_structure_states(state, direction, high, low, close, expected):
+    s = Structure()
+    s.high = {"id": "h", "price": 105}
+    s.low = {"id": "l", "price": 95}
+    s.state = state
+    assert (
+        s.update(bar(0, h=high, l=low, c=close), BASE + ref.FIVE)[0]["event_type"]
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "kind,prices,progression",
+    [
+        ("HIGH", [105, 110], "HH"),
+        ("HIGH", [110, 105], "LH"),
+        ("LOW", [95, 96], "HL"),
+        ("LOW", [96, 95], "LL"),
+    ],
+)
+def test_swing_progression(kind, prices, progression):
+    s = Structure(StructureConfig(1, 1))
+    idx = 0
+    for price in prices:
+        for value in [None, price, None]:
+            b = bar(
+                idx,
+                h=value if kind == "HIGH" and value else 102,
+                l=value if kind == "LOW" and value else 98,
+            )
+            s.update(b, b.timestamp + ref.FIVE)
+            idx += 1
+    assert s.progression[kind] == progression

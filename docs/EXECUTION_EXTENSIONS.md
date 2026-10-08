@@ -31,8 +31,8 @@ hits can fill before a newly requested stop becomes active. Existing MoveStop ho
 remain requests at minute/5m confirmation and may only tighten. No overlap/hedging.
 MFE/MAE retain full exit-minute OHLC uncertainty. Each partial records quantity,
 price, time, reason, gross/net P&L; trade exit is quantity-weighted. Commission is
-charged each side per contract. Stops/session fills receive adverse slippage;
-target limit fills use target prices. See the implementation tests for exact cases.
+charged each side per contract. All exits receive the configured adverse slippage, including target fills,
+matching the existing execution convention. See the implementation tests for exact cases.
 
 FIXED_DOLLAR_RISK floors budget / (entry-to-stop points × $2 + adverse stop slippage
 × $2 + roundtrip commission). Entry slippage is already included in entry-to-stop

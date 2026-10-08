@@ -40,9 +40,24 @@ class Indicators:
         self.vwap_cross_at = None
         self.vwap_side = 0
         self.cross_count = 0
+        self.vwap_invalid_days = set()
+        self.vwap_started_days = set()
 
     def update(self, bar, at, complete=True, contiguous=True, session_close=None):
+        day = str(at.tz_convert(NY).date())
+        clock = at.tz_convert(NY).strftime("%H:%M")
+        in_window = self.config.vwap_start <= clock < self.config.vwap_end and (
+            session_close is None or at < session_close
+        )
+        if in_window:
+            if day not in self.vwap_started_days:
+                self.vwap_started_days.add(day)
+                if clock != self.config.vwap_start:
+                    self.vwap_invalid_days.add(day)
+            if not complete or (not contiguous and clock != self.config.vwap_start):
+                self.vwap_invalid_days.add(day)
         if not complete or not contiguous:
+            self.cross_at = None
             self.prev = None
             self.ema9 = self.ema20 = None
             self.tr.clear()
@@ -98,6 +113,8 @@ class Indicators:
             self.pv += (hi + lo + cl) / 3 * volume
             self.volume += volume
             self.vwap = self.pv / self.volume if self.volume else None
+        if day in self.vwap_invalid_days:
+            self.vwap = None
         vwap_side = (
             0
             if self.vwap is None
@@ -149,6 +166,7 @@ class Indicators:
             above_ema20=cl > self.ema20,
             ema_alignment="BULLISH" if sep > 0 else "BEARISH" if sep < 0 else "NEUTRAL",
             vwap=self.vwap,
+            vwap_complete=day not in self.vwap_invalid_days,
             vwap_distance=vd,
             vwap_distance_atr=norm(vd),
             vwap_slope=(
@@ -159,6 +177,19 @@ class Indicators:
             ema9_vwap=self.ema9 - self.vwap if self.vwap is not None else None,
             ema20_vwap=self.ema20 - self.vwap if self.vwap is not None else None,
             above_vwap=vwap_side == 1 if self.vwap is not None else None,
+            vwap_alignment=(
+                "UNAVAILABLE"
+                if self.vwap is None
+                else (
+                    "BULLISH"
+                    if cl > self.ema9 > self.ema20 > self.vwap
+                    else (
+                        "BEARISH"
+                        if cl < self.ema9 < self.ema20 < self.vwap
+                        else "MIXED"
+                    )
+                )
+            ),
             vwap_cross_frequency=self.cross_count,
             minutes_since_vwap_cross=(
                 (at - self.vwap_cross_at).total_seconds() / 60

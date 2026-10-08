@@ -24,8 +24,16 @@ from engine.research.outcomes import label, PreparedMinutes, directional
 def version():
     return digest(
         {
-            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(Path(__file__).parent.glob("*.py"))
+            str(p.relative_to(Path(__file__).parents[1])): hashlib.sha256(
+                p.read_bytes()
+            ).hexdigest()
+            for p in sorted(
+                [
+                    *Path(__file__).parent.glob("*.py"),
+                    Path(__file__).parents[1] / "features.py",
+                    Path(__file__).parents[1] / "timeframes.py",
+                ]
+            )
         }
     )
 
@@ -38,8 +46,17 @@ def snapshot(config):
     import exchange_calendars
 
     calendar = {day: [str(op), str(cl)] for day, (op, cl) in schedule().items()}
+    additions = {}
+    if config.get("research_version", 1) == 2:
+        from engine.research.study2 import settings
+
+        additions = {
+            "research_settings": settings(config.get("research_settings", {})),
+            "artifact_format": "parquet-v2",
+        }
     return {
         **config,
+        **additions,
         "calendar": {
             "name": "XNYS",
             "package_version": exchange_calendars.__version__,
@@ -129,6 +146,10 @@ def run_detection(config, root):
         or config["research_engine_version"] != version()
     ):
         raise ValueError("Research identity changed; create a new study")
+    if config.get("research_version", 1) == 2:
+        from engine.research.study2 import detect as detect_v2
+
+        return detect_v2(config, root)
     events, baseline = detect(config)
     write_json(root / "events.json", events)
     write_json(root / "observations.json", baseline)
@@ -142,6 +163,10 @@ def run_labels(config, root):
         or config["research_engine_version"] != version()
     ):
         raise ValueError("Research identity changed; create a new study")
+    if config.get("research_version", 1) == 2:
+        from engine.research.study2 import labels
+
+        return labels(config, root)
     events = json.loads((root / "events.json").read_text())
     baseline = json.loads((root / "observations.json").read_text())
     p = profile(config["dataset"])

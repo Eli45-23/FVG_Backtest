@@ -8,7 +8,7 @@ import csv, io, json, os, subprocess, sys, threading
 import pandas as pd
 import pyarrow.parquet as pq
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from backend.app import db
@@ -31,6 +31,8 @@ class StudyBody(BaseModel):
     start: str = "2020-01-01"
     end: str = "2020-02-01"
     session: dict = Field(default_factory=dict)
+    research_version: Literal[1, 2] = 1
+    research_settings: dict = Field(default_factory=dict)
 
 
 def root(id):
@@ -228,6 +230,11 @@ def events(
     limit: int = Query(100, ge=1, le=1000),
 ):
     filters = {k: v for k, v in locals().copy().items() if k in FILTERS}
+    meta = gate(id)
+    if meta["config"].get("research_version") == 2:
+        from engine.research.queries import page
+
+        return page(root(id), filters, offset=offset, limit=limit)
     rows = filtered(id, filters)
     return {"count": len(rows), "events": rows[offset : offset + limit]}
 
@@ -285,6 +292,42 @@ def summary(
 @router.get("/studies/{id}/export")
 def export(id: str, format: Literal["json", "csv"] = "json"):
     meta = gate(id, True)
+    if meta["config"].get("research_version") == 2:
+        from engine.research.columnar import export_rows
+
+        def stream():
+            if format == "json":
+                yield '{"config":' + dumps(meta["config"]) + ',"config_hash":' + dumps(
+                    meta["config_hash"]
+                )
+                for kind in ("events", "observations", "outcomes"):
+                    yield ',"' + kind + '":['
+                    first = True
+                    for payload in export_rows(root(id), kind):
+                        yield ("" if first else ",") + payload
+                        first = False
+                    yield "]"
+                yield "}"
+            else:
+                out = io.StringIO()
+                writer = csv.writer(out)
+                writer.writerow(["event_id", "event_json"])
+                yield out.getvalue()
+                out.seek(0)
+                out.truncate(0)
+                for payload in export_rows(root(id), "events"):
+                    writer.writerow([json.loads(payload)["event_id"], payload])
+                    yield out.getvalue()
+                    out.seek(0)
+                    out.truncate(0)
+
+        return StreamingResponse(
+            stream(),
+            media_type="application/json" if format == "json" else "text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="event-study-{id}.{format}"'
+            },
+        )
     rows = load(id, "events.json")
     labels = load(id, "outcomes.json")
     if format == "json":
@@ -328,9 +371,17 @@ def chart(id: str, event_id: str):
         raise HTTPException(
             409, "Dataset changed since study; original chart cannot be reconstructed"
         )
-    event = next(
-        (e for e in load(id, "events.json") if e["event_id"] == event_id), None
-    )
+    if meta["config"].get("research_version") == 2:
+        from engine.research.columnar import query
+
+        found = query(
+            root(id), "SELECT payload FROM events WHERE event_id=?", [event_id]
+        )
+        event = json.loads(found[0]["payload"]) if found else None
+    else:
+        event = next(
+            (e for e in load(id, "events.json") if e["event_id"] == event_id), None
+        )
     if not event:
         raise HTTPException(404, "Event not found")
     at = pd.Timestamp(event["timestamp_utc"])
@@ -348,6 +399,9 @@ def chart(id: str, event_id: str):
             ("timestamp_utc", "<", end.to_pydatetime()),
         ],
     ).to_pylist()
+    from engine.research.chart_context import annotations
+
+    extra_annotations = annotations(event, start, end)
     return {
         "event": event,
         "candles": clean(bars),
@@ -371,7 +425,8 @@ def chart(id: str, event_id: str):
                 "color": "#65b9ef",
                 "category": "event",
             },
-        ],
+        ]
+        + extra_annotations,
     }
 
 
@@ -402,3 +457,63 @@ def cancel_active():
             cancel(id)
         except ValueError:
             pass
+
+
+class ResearchQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    filters: dict[str, str] = Field(default_factory=dict)
+    numeric: dict = Field(default_factory=dict)
+    group: str = "year"
+    horizon: Literal["5", "10", "15", "30", "60", "session_close"] = "30"
+    interpretation: Literal["continuation", "rejection"] = "continuation"
+    threshold: Literal[10, 25, 50, 75, 100] = 50
+    threshold_atr: float | None = None
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=100, ge=1, le=1000)
+    sort: str = "timestamp_utc"
+    descending: bool = False
+
+
+@router.post("/studies/{id}/query")
+def research_query(id: str, body: ResearchQuery):
+    meta = gate(id)
+    if meta["config"].get("research_version") != 2:
+        raise ValueError("Use the legacy query for a JSON v1 study")
+    from engine.research.queries import page
+
+    return page(
+        root(id),
+        body.filters,
+        body.numeric,
+        body.offset,
+        body.limit,
+        body.sort,
+        body.descending,
+    )
+
+
+@router.post("/studies/{id}/statistics")
+def research_statistics(id: str, body: ResearchQuery):
+    meta = gate(id, True)
+    if meta["config"].get("research_version") != 2:
+        raise ValueError("Confidence statistics require a v2 study")
+    from engine.research.queries import summary
+
+    return summary(
+        root(id),
+        meta["config"],
+        body.filters,
+        body.numeric,
+        body.group,
+        body.horizon,
+        body.threshold,
+        body.interpretation,
+        body.threshold_atr,
+    )
+
+
+@router.get("/fields")
+def research_fields():
+    from engine.research.numeric import NUMERIC, CATEGORIES
+
+    return {"numeric": NUMERIC, "categorical": CATEGORIES}
