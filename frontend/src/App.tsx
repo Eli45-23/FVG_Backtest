@@ -1,3 +1,4 @@
+import EventStudies from "./EventStudies";
 import Experiments from "./Experiments";
 import VersionBrowser from "./VersionBrowser";
 import TradeInspector from "./TradeInspector";
@@ -32,6 +33,7 @@ const nav = [
   ["Trades", Table2],
   ["Research", Search],
   ["Experiments", FlaskConical],
+  ["Event Studies", FlaskConical],
   ["Data", Database],
   ["Settings", Settings],
 ] as const;
@@ -1058,6 +1060,7 @@ export default function App() {
             )}
           </>
         )}
+        {page === "Event Studies" && <EventStudies />}
         {page === "Experiments" && (
           <Experiments
             selected={selected}
