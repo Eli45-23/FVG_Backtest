@@ -1,0 +1,17 @@
+# Newest four-hour zone — penetration/rejection v2
+
+Frozen before outcomes on October 9, 2026 from the confirmed voice instructions. Status: DEVELOPMENT_ONLY_NOT_VALIDATED. Only this setup is run; no taps or breakout entries.
+
+- Development NY 2020-01-01 inclusive to 2024-01-01 exclusive, research_2020_2026. The accepted V2 formation geometry, ATR/calendar foundation and 104 unresolved entry-date exclusions remain unchanged.
+- Keep one newest confirmed supply and one newest confirmed demand zone. New confirmation permanently replaces the older same-side zone. No fallback after replacement or invalidation. Same-time proposals use stable zone ID ordering, last ID wins.
+- Every complete five-minute source bar can invalidate an active zone, including overnight, premarket, holidays and excluded entry dates. Supply invalidates when low > top; demand when high < bottom. Equality, a wick through, or a body-only break does not qualify. The decision becomes known only at bar close. Incomplete bars do not establish a break; no synthetic candles.
+- Only candles starting after zone availability may interact with it. At a shared timestamp, process the just-completed bar's invalidation, then new zone confirmations. A replaced zone cannot generate an entry at that same timestamp. New zones cannot retrospectively use the just-completed bar.
+- Retain the earlier RTH-only contact/entry convention: price approaches supply from below or demand from above. A contiguous contact episode must penetrate the near edge strictly. After it ends, the first separate complete whole five-minute candle outside on the approach side triggers at its close: supply SHORT, demand LONG. Both wicks must be outside. No exact taps, breakout signals or candle-direction requirement.
+- Contact/pending entry state resets overnight, across missing/incomplete five-minute bars and excluded entry sessions. Zone replacement/invalidation state continues all hours. Missing source data cannot prove a historical break; this coverage limitation remains disclosed.
+- Full XNYS RTH only, no holidays/half-days. No entry at the closing instant. One open position overall; reentry requires a contact episode begun at or after the last recorded exit. Simultaneous opposing signals retain oldest zone availability then stable ID priority. Replacing/invalidating a zone does not change an already-open trade's frozen stop or target.
+- One MNQ micro, $2/point, one adverse tick each side, actual $0.73/side fee. Stop one tick beyond the opposite zone edge; fixed original 2R using executed entry. No management or additional filters.
+- Native one-minute execution starts at entry confirmation, excludes the signal candle, uses stop-first ambiguity and adverse stop gaps, then session-close exit. Missing owned minutes are explicit execution failures and lock the remaining session.
+- Report 1R and 2R gross price touches before actual exit, based on original executed risk. Same-minute stop/threshold conflict is counted conservatively as stop-first and disclosed separately. No partial exit at 1R. Net P&L includes fees/slippage; a 2R price touch is not necessarily net 2R.
+- Preserve earlier results, production execution and provider lifecycle. No Validation/OOS access, no optimization. User waived human-label prerequisite; engineering safeguards still apply.
+
+Run `work/.venv/bin/python scripts/zone_rejection_v2/verify.py`. Outputs are local under `work/four-hour-zone-rejection-v2/results/` and do not alter saved-run database records.
