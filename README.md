@@ -60,3 +60,14 @@ unchanged. No strategy or parameter optimization is performed by this feature.
 
 Read [Level Research Foundation](docs/LEVEL_RESEARCH_FOUNDATION.md) for exact mechanical
 definitions, causal API examples, endpoints, limitations and measurement conventions.
+
+## Fixed-level reaction and entry-timing study
+
+The **Research** page links the verified Development-only eight-level study: PDH/PDL,
+midnight premarket high/low, opening five-minute high/low, and opening fifteen-minute
+high/low. Compare four reaction families and ten confirmed-candle entry definitions,
+forward distances, adverse paths, yearly results and matched-baseline evidence.
+These are research observations, not simulated strategy profits.
+
+See [frozen definitions](docs/EIGHT_LEVEL_REACTION_ENTRY_STUDY_V1.md) and
+[viewing, exports and reproduction](docs/EIGHT_LEVEL_STUDY_REPRODUCTION.md).

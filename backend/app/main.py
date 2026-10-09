@@ -738,3 +738,7 @@ app.include_router(zone_labels_router)
 # Opt-in accepted-calendar collection; preserves the legacy annotation workflow.
 from backend.app.zone_ground_truth_v2 import router as accepted_zone_labels_router
 app.include_router(accepted_zone_labels_router)
+
+# Completed, verified Development-only level-research artifacts; read-only.
+from backend.app.level_study_report import router as level_study_report_router
+app.include_router(level_study_report_router)

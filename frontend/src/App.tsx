@@ -1,3 +1,4 @@
+import LevelStudyReport from "./LevelStudyReport";
 import ExecutionSettings from "./ExecutionSettings";
 import EventStudies from "./EventStudies";
 import Experiments from "./Experiments";
@@ -1338,6 +1339,7 @@ export default function App() {
         )}
         {page === "Research" && (
           <div className="panel">
+            <LevelStudyReport />
             <h2>FVG lifecycle explorer</h2>
             <div className="filters">
               {[
