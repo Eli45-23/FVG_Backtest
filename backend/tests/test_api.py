@@ -2,8 +2,7 @@ import os, tempfile, time, json
 from pathlib import Path
 
 # Isolate the whole API test database from the user's workspace database.
-TEST_STORAGE = tempfile.TemporaryDirectory(prefix="lab-tests-")
-os.environ["LAB_STORAGE"] = TEST_STORAGE.name
+TEST_STORAGE = Path(os.environ["LAB_STORAGE"])  # established before imports by conftest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from backend.app.main import app
