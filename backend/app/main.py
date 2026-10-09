@@ -758,3 +758,6 @@ app.include_router(combination_report_router)
 from backend.app.o15l_report import router as o15l_report_router
 
 app.include_router(o15l_report_router)
+
+from backend.app.o15l_validation_report import router as o15l_validation_report_router
+app.include_router(o15l_validation_report_router)

@@ -1,3 +1,4 @@
+import O15lValidationReport from "./O15lValidationReport";
 import O15lReport from "./O15lReport";
 import Opening15Report from "./Opening15Report";
 import CombinationReport from "./CombinationReport";
@@ -1345,6 +1346,7 @@ export default function App() {
         {page === "Research" && (
           <div className="panel">
             <CombinationReport />
+            <O15lValidationReport />
             <O15lReport />
             <Opening15Report />
             <FullHoldReport />
