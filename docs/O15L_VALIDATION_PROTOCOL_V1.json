@@ -1,0 +1,22 @@
+{
+  "bootstrap_repetitions": 5000,
+  "bootstrap_seed": 1729,
+  "development_specification_sha256": "969e85b90db65fad298ae552ff92055808da84a646ce1fc47d74b2192af7aa14",
+  "end_exclusive": "2025-01-01",
+  "fee_per_side": "0.73",
+  "max_drawdown_r": 7.031524868463503,
+  "min_dates": 30,
+  "min_trades": 30,
+  "primary_ticks": 1,
+  "quantity": 1,
+  "segment": "validation",
+  "sensitivity_ticks": [
+    0,
+    1,
+    2
+  ],
+  "specification_sha256": "43898c80c03adcc37ae9c5add40edfa5bf553784ec16b8395c07c426355ecd13",
+  "start": "2024-01-01",
+  "status": "FROZEN_BEFORE_VALIDATION_ACCESS",
+  "target_r": 1
+}
