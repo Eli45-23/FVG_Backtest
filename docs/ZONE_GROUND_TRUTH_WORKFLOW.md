@@ -1,3 +1,5 @@
+> Historical workflow: the Zone Labeler workspace was removed from the application on 2026-10-09 at the user’s request. Saved annotations and compatibility APIs remain preserved. See [current supply/demand research](SUPPLY_DEMAND_ZONE_RESEARCH.md). The instructions below describe the retired interface.
+
 # Development Zone Ground Truth workflow
 
 V2 remains **PROVISIONAL_PENDING_HUMAN_GROUND_TRUTH**. This workspace measures

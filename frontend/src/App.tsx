@@ -1,7 +1,5 @@
 import ExecutionSettings from "./ExecutionSettings";
 import EventStudies from "./EventStudies";
-import ZoneLabeler from "./ZoneLabeler";
-import AcceptedZoneLabeler from "./AcceptedZoneLabeler";
 import Experiments from "./Experiments";
 import VersionBrowser from "./VersionBrowser";
 import TradeInspector from "./TradeInspector";
@@ -37,7 +35,6 @@ const nav = [
   ["Research", Search],
   ["Experiments", FlaskConical],
   ["Event Studies", FlaskConical],
-  ["Zone Labeler", FlaskConical],
   ["Data", Database],
   ["Settings", Settings],
 ] as const;
@@ -1086,17 +1083,6 @@ export default function App() {
           </>
         )}
         {page === "Event Studies" && <EventStudies />}
-        {page === "Zone Labeler" && (
-          <>
-            <AcceptedZoneLabeler />
-            <details>
-              <summary>
-                Legacy candidate labeler — older identity (preserved)
-              </summary>
-              <ZoneLabeler />
-            </details>
-          </>
-        )}
         {page === "Experiments" && (
           <Experiments
             selected={selected}
