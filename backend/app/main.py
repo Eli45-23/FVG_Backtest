@@ -742,3 +742,7 @@ app.include_router(accepted_zone_labels_router)
 # Completed, verified Development-only level-research artifacts; read-only.
 from backend.app.level_study_report import router as level_study_report_router
 app.include_router(level_study_report_router)
+
+# Read-only frozen Development execution-feasibility diagnostics.
+from backend.app.downward_break_report import router as downward_break_report_router
+app.include_router(downward_break_report_router)

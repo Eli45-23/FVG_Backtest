@@ -1,3 +1,4 @@
+import DownwardBreakReport from "./DownwardBreakReport";
 import LevelStudyReport from "./LevelStudyReport";
 import ExecutionSettings from "./ExecutionSettings";
 import EventStudies from "./EventStudies";
@@ -1339,6 +1340,7 @@ export default function App() {
         )}
         {page === "Research" && (
           <div className="panel">
+            <DownwardBreakReport />
             <LevelStudyReport />
             <h2>FVG lifecycle explorer</h2>
             <div className="filters">

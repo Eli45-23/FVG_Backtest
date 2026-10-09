@@ -71,3 +71,9 @@ These are research observations, not simulated strategy profits.
 
 See [frozen definitions](docs/EIGHT_LEVEL_REACTION_ENTRY_STUDY_V1.md) and
 [viewing, exports and reproduction](docs/EIGHT_LEVEL_STUDY_REPRODUCTION.md).
+
+The follow-up **Downward-break execution feasibility** report uses all eight levels’
+causal downward breaks, two frozen structural stops, fixed 1R/2R targets and actual
+MNQ fees. Every diagnostic fill uses the unchanged local executor. Read the
+[frozen protocol](docs/DOWNWARD_BREAK_EXECUTION_FEASIBILITY_V1.md) and
+[reproduction guide](docs/DOWNWARD_BREAK_FEASIBILITY_REPRODUCTION.md).
