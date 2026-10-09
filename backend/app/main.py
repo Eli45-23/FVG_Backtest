@@ -749,3 +749,6 @@ app.include_router(downward_break_report_router)
 
 from backend.app.full_hold_report import router as full_hold_report_router
 app.include_router(full_hold_report_router)
+
+from backend.app.opening15_report import router as opening15_report_router
+app.include_router(opening15_report_router)
