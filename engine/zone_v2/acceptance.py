@@ -40,3 +40,41 @@ def require_acceptance(report, configuration, implementation_hash):
         raise ValueError(
             "V2 remains provisional pending human ground truth; forward research prohibited"
         )
+
+
+MECHANICAL_POLICY = "DEVELOPMENT_MECHANICAL_RESEARCH_V1"
+
+
+def assess_mechanical(checks, configuration, implementation_hash):
+    """Current opt-in research policy, authorized by the user on 2026-10-09.
+
+    Historical assess()/require_acceptance() reports remain immutable/readable.
+    Mechanical research requires engineering evidence, not human annotations.
+    This is NOT a human-ground-truth or profitability acceptance declaration.
+    """
+    missing = [k for k in REQUIRED if checks.get(k) is not True]
+    return dict(
+        policy=MECHANICAL_POLICY,
+        status="DEVELOPMENT_ONLY_NOT_VALIDATED",
+        engineering_status="BLOCKED" if missing else "PASSED",
+        human_ground_truth_required=False,
+        research_allowed=not missing,
+        allowed_segment="development",
+        authorization="User removed human-label prerequisite on 2026-10-09",
+        failed_checks=missing,
+        checks=checks,
+        configuration_sha256=digest(configuration),
+        implementation_sha256=implementation_hash,
+    )
+
+
+def require_mechanical_acceptance(report, configuration, implementation_hash, segment):
+    expected = assess_mechanical(
+        report.get("checks", {}), configuration, implementation_hash
+    )
+    if (
+        report != expected
+        or not expected["research_allowed"]
+        or segment != "development"
+    ):
+        raise ValueError("Matching engineering proof and Development scope required")

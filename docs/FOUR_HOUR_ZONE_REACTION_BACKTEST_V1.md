@@ -2,9 +2,9 @@
 
 Specification version: 1. Recorded 2026-10-09 from the user's voice instructions.
 
-**Specification status: READY_FOR_REVIEW. Outcome execution: BLOCKED_BY_EXISTING_PROVIDER_ACCEPTANCE_GATE.**
+**Specification status: FROZEN. Outcome execution: AUTHORIZED_DEVELOPMENT_MECHANICAL_RESEARCH.**
 
-The user approved three separately reported setups, full-candle outside-zone confirmation, boundary stops, fixed 2R, no management, full NYSE regular sessions, no holidays or half-days, one position at a time and re-entry only after a new contact episode. This document makes those rules concrete. No outcome backtest has run.
+The user approved three separately reported setups, full-candle outside-zone confirmation, boundary stops, fixed 2R, no management, full NYSE regular sessions, no holidays or half-days, one position at a time and re-entry only after a new contact episode. This document makes those rules concrete. The user subsequently authorized removing the human-label prerequisite and proceeding with these three Development backtests. This authorization does not certify predictive performance or human-label agreement.
 
 ## Common contract
 
@@ -80,10 +80,10 @@ Run A, B and C separately with identical data/provider/cost identities and fixed
 
 Required checks: causal zone availability; no departure in base bounds; strict whole-candle separation and equality edge cases; tap-versus-penetration distinction; adjacent breakout confirmation; no signal-candle fills; one open position; fresh episode after exit; holiday/half-day exclusion; fixed stop/2R; native one-minute fills; deterministic repeats; unchanged source identities and old engine behavior.
 
-## Existing gate and the decision still required
+## Current authorization and historical preservation
 
-The accepted foundation's saved readiness report explicitly sets `forward_outcome_research_allowed: false`. `engine/zone_v2/acceptance.py` deliberately prohibits V2 outcome research pending human ground truth, and exposes no accepted-provider override. The later removal of the Zone Labeler did not modify that gate or validate V2.
+On 2026-10-09 the user explicitly instructed: “remove that restriction … then move on with the back testing.” The human-ground-truth prerequisite is removed for this mechanical Development experiment. The new `DEVELOPMENT_MECHANICAL_RESEARCH_V1` policy still requires engineering evidence and rejects Validation/OOS scope. It does not claim human-ground-truth acceptance.
 
-Before outcome execution, the user must explicitly authorize this **experimental mechanical-zone Development backtest despite the unvalidated human-ground-truth status**, or retain the block. If authorized, record a separate immutable experiment-specific authorization, keep V2 provisional, keep the original gate/artifacts unchanged, and do not grant blanket approval for future zone studies. That is distinct from claiming HUMAN_GROUND_TRUTH_ACCEPTED.
+The original readiness artifacts and old acceptance API remain unchanged for historical reproducibility. Their saved `forward_outcome_research_allowed: false` describes the earlier policy, not a veto on this later explicit authorization. The experiment records its own authorization and exact source hashes. Formation thresholds, calendar exclusions, fills and lifecycle behavior are unchanged.
 
-No new provider, threshold change, manual label or outcome result has been created by this specification.
+Results retain `DEVELOPMENT_ONLY_NOT_VALIDATED`. Human labels are optional future diagnostic evidence, not a prerequisite for these runs.
