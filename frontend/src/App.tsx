@@ -1,6 +1,7 @@
 import ExecutionSettings from "./ExecutionSettings";
 import EventStudies from "./EventStudies";
 import ZoneLabeler from "./ZoneLabeler";
+import AcceptedZoneLabeler from "./AcceptedZoneLabeler";
 import Experiments from "./Experiments";
 import VersionBrowser from "./VersionBrowser";
 import TradeInspector from "./TradeInspector";
@@ -1085,7 +1086,17 @@ export default function App() {
           </>
         )}
         {page === "Event Studies" && <EventStudies />}
-        {page === "Zone Labeler" && <ZoneLabeler />}
+        {page === "Zone Labeler" && (
+          <>
+            <AcceptedZoneLabeler />
+            <details>
+              <summary>
+                Legacy candidate labeler — older identity (preserved)
+              </summary>
+              <ZoneLabeler />
+            </details>
+          </>
+        )}
         {page === "Experiments" && (
           <Experiments
             selected={selected}

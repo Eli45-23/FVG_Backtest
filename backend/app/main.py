@@ -734,3 +734,7 @@ app.include_router(event_studies_router)
 # Additive annotation artifacts, separate from studies and production database.
 from backend.app.zone_labels import router as zone_labels_router
 app.include_router(zone_labels_router)
+
+# Opt-in accepted-calendar collection; preserves the legacy annotation workflow.
+from backend.app.zone_ground_truth_v2 import router as accepted_zone_labels_router
+app.include_router(accepted_zone_labels_router)
