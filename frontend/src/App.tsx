@@ -1,3 +1,4 @@
+import O15lReport from "./O15lReport";
 import Opening15Report from "./Opening15Report";
 import CombinationReport from "./CombinationReport";
 import FullHoldReport from "./FullHoldReport";
@@ -1344,6 +1345,7 @@ export default function App() {
         {page === "Research" && (
           <div className="panel">
             <CombinationReport />
+            <O15lReport />
             <Opening15Report />
             <FullHoldReport />
             <DownwardBreakReport />

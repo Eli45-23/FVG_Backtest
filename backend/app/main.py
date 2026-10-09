@@ -754,3 +754,7 @@ from backend.app.opening15_report import router as opening15_report_router
 from backend.app.combination_report import router as combination_report_router
 app.include_router(opening15_report_router)
 app.include_router(combination_report_router)
+
+from backend.app.o15l_report import router as o15l_report_router
+
+app.include_router(o15l_report_router)

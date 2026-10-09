@@ -1,0 +1,15 @@
+{
+  "daily_limit": null,
+  "fee_per_side": "0.73",
+  "max_open_positions": 1,
+  "primary_slippage_ticks": 1,
+  "quantity": 1,
+  "sensitivity_ticks": [
+    0,
+    1,
+    2
+  ],
+  "specification_sha256": "969e85b90db65fad298ae552ff92055808da84a646ce1fc47d74b2192af7aa14",
+  "status": "DEVELOPMENT_ONLY_NOT_VALIDATED",
+  "target_r": 1
+}
