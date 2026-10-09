@@ -617,3 +617,14 @@ details.panel summary {
 
 .event-studies input[type="checkbox"] { width: auto; margin-right: .4rem; }
 .event-studies .toolbar label:has(input[type="checkbox"]) { display: inline-flex; align-items: center; gap: .25rem; }
+
+.zone-labeler label:has(input[type="checkbox"]) {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.zone-labeler input[type="checkbox"] { width: auto; }
+.zone-labeler textarea { display: block; width: min(680px, 100%); min-height: 72px; margin: 12px 0; }

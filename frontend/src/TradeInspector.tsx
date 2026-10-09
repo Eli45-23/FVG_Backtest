@@ -20,6 +20,7 @@ export function annotationX(
   time: string,
   candles: { time: number }[],
   coordinate: (n: number) => number | null,
+  finalStep = 300,
 ) {
   const at = Date.parse(time) / 1000;
   let right = candles.findIndex((c) => c.time > at);
@@ -29,7 +30,7 @@ export function annotationX(
     x2 = coordinate(left + 1) ?? x1;
   const step = candles[left + 1]
     ? candles[left + 1].time - candles[left].time
-    : 300;
+    : finalStep;
   return x1 + ((x2 - x1) * (at - candles[left].time)) / step;
 }
 export function CandleChart({ data }: { data: any }) {
@@ -50,6 +51,7 @@ export function CandleChart({ data }: { data: any }) {
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
+        rightOffset: data.right_offset ?? 0,
         tickMarkFormatter: (t: any) => ny(Number(t)),
       },
       localization: { timeFormatter: (t: any) => ny(Number(t)) },
@@ -94,8 +96,11 @@ export function CandleChart({ data }: { data: any }) {
       if (!svg) return;
       svg.replaceChildren();
       const x = (time: string) =>
-        annotationX(time, candles, (n) =>
-          chart.timeScale().logicalToCoordinate(n as any),
+        annotationX(
+          time,
+          candles,
+          (n) => chart.timeScale().logicalToCoordinate(n as any),
+          data.bar_seconds ?? 300,
         );
       const y = (price: any) => series.priceToCoordinate(Number(price)) ?? 0;
       const node = (type: string, attrs: any, label?: string) => {

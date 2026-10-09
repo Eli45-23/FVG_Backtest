@@ -730,3 +730,7 @@ app.include_router(experiments_router)
 from backend.app.event_studies import router as event_studies_router
 
 app.include_router(event_studies_router)
+
+# Additive annotation artifacts, separate from studies and production database.
+from backend.app.zone_labels import router as zone_labels_router
+app.include_router(zone_labels_router)
