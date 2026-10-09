@@ -17,7 +17,10 @@ The frozen configuration must match before the foundation runner proceeds.
 The candidate CMES schedule disagrees with local historical MNQ coverage on
 specific holidays. The provider is deliberately not registered in the production
 Event Studies selector. Resolve and version the calendar, rerun reconciliation,
-and complete five-minute lifecycle visual audits before enabling research.
+and complete five-minute lifecycle visual audits for engineering readiness only.
+The provider remains `PROVISIONAL_PENDING_HUMAN_GROUND_TRUTH` even if all checks
+pass. A separate frozen human-label comparison is required; no outcome research
+is authorized by these commands.
 `engine.zone_v2.acceptance.require_acceptance` rejects incomplete/stale acceptance.
 
 See `docs/FOUR_HOUR_SUPPLY_DEMAND_VISUAL_SPEC_V2.md` for frozen semantics. No existing

@@ -345,8 +345,36 @@ def test_research_gate_rejects_incomplete_and_stale_proof():
     with pytest.raises(ValueError):
         require_acceptance(report, {}, "a")
     approved = assess({k: True for k in REQUIRED}, {}, "a")
-    require_acceptance(approved, {}, "a")
+    assert approved["engineering_status"] == "PASSED"
+    assert approved["status"] == "PROVISIONAL_PENDING_HUMAN_GROUND_TRUTH"
+    assert approved["human_ground_truth_required"] is True
+    assert approved["research_allowed"] is False
+    with pytest.raises(ValueError, match="human ground truth"):
+        require_acceptance(approved, {}, "a")
     with pytest.raises(ValueError):
         require_acceptance(approved, {}, "b")
     with pytest.raises(ValueError):
         require_acceptance(approved, {"different": True}, "a")
+
+
+def test_engineering_checks_cannot_bypass_human_ground_truth():
+    from engine.zone_v2.acceptance import assess, require_acceptance, REQUIRED
+
+    checks = {k: True for k in REQUIRED}
+    checks["human_ground_truth_approved"] = True
+    report = assess(checks, {}, "a")
+    assert report["research_allowed"] is False
+    report["research_allowed"] = True
+    report["status"] = "ACCEPTED"
+    with pytest.raises(ValueError):
+        require_acceptance(report, {}, "a")
+
+
+def test_unfinished_engineering_retains_provisional_provider_status():
+    from engine.zone_v2.acceptance import assess
+
+    report = assess({}, {}, "a")
+    assert report["status"] == "PROVISIONAL_PENDING_HUMAN_GROUND_TRUTH"
+    assert report["engineering_status"] == "BLOCKED"
+    assert report["failed_checks"]
+    assert report["research_allowed"] is False
