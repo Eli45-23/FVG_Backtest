@@ -1,5 +1,6 @@
 import O15lValidationReport from "./O15lValidationReport";
 import O15lReport from "./O15lReport";
+import SimpleDiscoveryReport from "./SimpleDiscoveryReport";
 import StructureReport from "./StructureReport";
 import Opening15Report from "./Opening15Report";
 import CombinationReport from "./CombinationReport";
@@ -1349,6 +1350,7 @@ export default function App() {
             <CombinationReport />
             <O15lValidationReport />
             <O15lReport />
+            <SimpleDiscoveryReport />
             <StructureReport />
             <Opening15Report />
             <FullHoldReport />
