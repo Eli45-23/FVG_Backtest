@@ -767,3 +767,6 @@ app.include_router(structure_report_router)
 
 from backend.app.simple_discovery_report import router as simple_discovery_report_router
 app.include_router(simple_discovery_report_router)
+
+from backend.app.simple_search_report import router as simple_search_report_router
+app.include_router(simple_search_report_router)
